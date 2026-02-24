@@ -114,7 +114,7 @@ export function Dashboard() {
           return (
             <div
               key={index}
-              className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+              className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all duration-300"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
@@ -146,7 +146,7 @@ export function Dashboard() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Appointments Comparison */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="mb-6">
             <h2 className="text-xl text-slate-800 mb-1">Citas Semanales</h2>
             <p className="text-sm text-slate-500">Comparación con semana anterior</p>
@@ -177,7 +177,7 @@ export function Dashboard() {
         </div>
 
         {/* Follow-up Trends */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="mb-6">
             <h2 className="text-xl text-slate-800 mb-1">Tendencia de Seguimientos</h2>
             <p className="text-sm text-slate-500">Evolución por estado</p>
@@ -204,7 +204,7 @@ export function Dashboard() {
       </div>
 
       {/* Monthly Activity Chart */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
         <div className="mb-6">
           <h2 className="text-xl text-slate-800 mb-1">Actividad Mensual</h2>
           <p className="text-sm text-slate-500">Comparativa de citas, seguimientos y mensajes</p>
@@ -231,7 +231,7 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Citas de Hoy */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl text-slate-800">Citas de Hoy</h2>
             <Calendar className="w-5 h-5 text-purple-600" />
@@ -259,7 +259,7 @@ export function Dashboard() {
         </div>
 
         {/* Casos Críticos */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl text-slate-800">Casos Prioritarios</h2>
             <AlertCircle className="w-5 h-5 text-red-600" />

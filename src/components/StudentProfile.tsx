@@ -88,7 +88,7 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar - Student Info */}
         <div className="lg:col-span-1">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm sticky top-6">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm sticky top-6">
             <div className="text-center mb-6">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl mx-auto mb-4 shadow-lg">
                 {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -132,7 +132,7 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
         {/* Content Area */}
         <div className="lg:col-span-3">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden">
             {/* Tabs */}
             <div className="flex border-b border-purple-100/50 overflow-x-auto">
               {tabs.map((tab) => {

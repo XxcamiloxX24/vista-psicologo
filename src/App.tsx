@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dashboard } from "./components/Dashboard";
 import { Appointments } from "./components/Appointments";
 import { Messages } from "./components/Messages";
@@ -8,6 +8,9 @@ import { About } from "./components/About";
 import { Settings } from "./components/Settings";
 import { Sidebar } from "./components/Sidebar";
 import { Chatbot } from "./components/Chatbot";
+import { Login } from "./components/Login";
+import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
+import { isAuthenticated as checkAuth } from "./lib/auth";
 
 type Section =
   | "dashboard"
@@ -18,7 +21,15 @@ type Section =
   | "about"
   | "settings";
 
+type AuthView = "login" | "terms" | "app";
+
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(checkAuth());
+  const [authView, setAuthView] = useState<AuthView>("login");
+
+  useEffect(() => {
+    setIsAuthenticated(checkAuth());
+  }, []);
   const [activeSection, setActiveSection] =
     useState<Section>("dashboard");
   const [targetStudentId, setTargetStudentId] = useState<string | null>(null);
@@ -27,6 +38,19 @@ export default function App() {
     setTargetStudentId(studentId);
     setActiveSection("followups");
   };
+
+  // Pantalla de login o términos (no autenticado)
+  if (!isAuthenticated) {
+    if (authView === "terms") {
+      return <TermsAndPrivacy onBack={() => setAuthView("login")} />;
+    }
+    return (
+      <Login
+        onLogin={() => setIsAuthenticated(true)}
+        onViewTerms={() => setAuthView("terms")}
+      />
+    );
+  }
 
   const renderSection = () => {
     switch (activeSection) {
@@ -50,7 +74,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50">
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}

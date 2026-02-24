@@ -18,7 +18,7 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white/80 backdrop-blur-xl border-r border-purple-100/50 shadow-lg z-40">
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-white/95 backdrop-blur-xl border-r border-purple-100/50 shadow-lg z-40">
       <div className="flex flex-col h-full">
         {/* Logo & Brand */}
         <div className="p-6 border-b border-purple-100/50">

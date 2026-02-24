@@ -378,6 +378,10 @@
     appearance: button;
   }
 
+  button, a, [role="button"] {
+    cursor: pointer;
+  }
+
   ::file-selector-button {
     appearance: button;
   }

@@ -52,7 +52,7 @@ export function About() {
           return (
             <div
               key={index}
-              className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all"
+              className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all"
             >
               <div className={`w-14 h-14 rounded-xl ${section.bgColor} flex items-center justify-center mb-4`}>
                 <Icon className={`w-7 h-7 bg-gradient-to-r ${section.color} bg-clip-text`} style={{ WebkitTextFillColor: 'transparent', WebkitBackgroundClip: 'text', backgroundClip: 'text' }} />
@@ -65,7 +65,7 @@ export function About() {
       </div>
 
       {/* Stats */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-purple-100/50 shadow-sm">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-8 border border-purple-100/50 shadow-sm">
         <h3 className="text-xl text-slate-800 mb-6 text-center">Nuestro Impacto</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="text-center">

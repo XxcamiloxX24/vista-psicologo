@@ -187,7 +187,7 @@ export function Appointments() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-slate-800">Calendario</h2>
             <Calendar className="w-5 h-5 text-purple-600" />
@@ -272,7 +272,7 @@ export function Appointments() {
         </div>
 
         {/* Appointments List */}
-        <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="mb-6">
             <h2 className="text-xl text-slate-800 mb-2">Citas del día</h2>
             <p className="text-sm text-slate-500 capitalize">{formatDate(selectedDate)}</p>

@@ -66,7 +66,7 @@ export function Settings() {
           return (
             <div
               key={section.id}
-              className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden"
+              className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden"
             >
               <button
                 onClick={() => toggleSection(section.id)}

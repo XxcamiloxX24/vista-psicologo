@@ -224,7 +224,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-3 relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -472,7 +472,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
           <button
             key={student.id}
             onClick={() => setSelectedStudent(student)}
-            className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 hover:shadow-lg transition-all text-left group"
+            className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 hover:shadow-lg transition-all text-left group"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
@@ -518,7 +518,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
       </div>
 
       {filteredStudents.length === 0 && (
-        <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100/50">
+        <div className="text-center py-12 bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50">
           <User className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <p className="text-slate-600">No se encontraron aprendices</p>
         </div>

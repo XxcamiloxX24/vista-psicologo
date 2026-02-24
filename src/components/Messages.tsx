@@ -256,7 +256,7 @@ export function Messages() {
         </DialogContent>
       </Dialog>
 
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden h-[calc(100vh-240px)]">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden h-[calc(100vh-240px)]">
         <div className="grid grid-cols-3 h-full">
           {/* Chat List */}
           <div className="border-r border-purple-100/50 flex flex-col">
