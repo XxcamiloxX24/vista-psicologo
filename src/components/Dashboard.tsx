@@ -1,11 +1,101 @@
-import { Calendar, Users, MessageSquare, Activity, TrendingUp, AlertCircle, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Users, MessageSquare, Activity, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { usePsychologist } from '../contexts/PsychologistContext';
+import { getTotalAprendices } from '../lib/aprendiz';
+import { getCitasHoy } from '../lib/citas';
+import { getTendenciaEstado } from '../lib/seguimiento';
+import type { TendenciaEstadoItem } from '../lib/seguimiento';
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export function Dashboard() {
+  const { displayName } = usePsychologist();
+  const [totalAprendices, setTotalAprendices] = useState<number | null>(null);
+  const [citasHoy, setCitasHoy] = useState<number | null>(null);
+  const [tendenciaModo, setTendenciaModo] = useState<'recientes' | 'cuatrimestre' | 'rango'>('recientes');
+  const [anioCuatrimestre, setAnioCuatrimestre] = useState<string>(String(new Date().getFullYear()));
+  const [cuatrimestre, setCuatrimestre] = useState<string>('1');
+  const [rangoDesde, setRangoDesde] = useState<string>('');
+  const [rangoHasta, setRangoHasta] = useState<string>('');
+  const [rangoError, setRangoError] = useState<string>('');
+  const [followupTrendsData, setFollowupTrendsData] = useState<TendenciaEstadoItem[]>([]);
+
+  useEffect(() => {
+    getTotalAprendices()
+      .then(setTotalAprendices)
+      .catch(() => setTotalAprendices(0));
+  }, []);
+
+  useEffect(() => {
+    getCitasHoy()
+      .then(setCitasHoy)
+      .catch(() => setCitasHoy(0));
+  }, []);
+
+  const toDateInputValue = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const addMonths = (date: Date, months: number) => {
+    const d = new Date(date);
+    d.setMonth(d.getMonth() + months);
+    return d;
+  };
+
+  const isRangeValid = (from: string, to: string) => {
+    if (!from || !to) return true;
+    const fromDate = new Date(`${from}T00:00:00`);
+    const toDate = new Date(`${to}T00:00:00`);
+    if (toDate < fromDate) return false;
+    const maxDate = addMonths(fromDate, 4);
+    return toDate <= maxDate;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadData = async () => {
+      if (tendenciaModo === 'rango') {
+        if (!rangoDesde || !rangoHasta || rangoError) {
+          setFollowupTrendsData([]);
+          return;
+        }
+      }
+
+      if (tendenciaModo === 'cuatrimestre') {
+        const year = parseInt(anioCuatrimestre, 10);
+        if (!year || isNaN(year)) {
+          setFollowupTrendsData([]);
+          return;
+        }
+      }
+
+      try {
+        const data = await getTendenciaEstado({
+          modo: tendenciaModo,
+          anio: tendenciaModo === 'cuatrimestre' ? parseInt(anioCuatrimestre, 10) : undefined,
+          cuatrimestre: tendenciaModo === 'cuatrimestre' ? parseInt(cuatrimestre, 10) : undefined,
+          desde: tendenciaModo === 'rango' ? rangoDesde : undefined,
+          hasta: tendenciaModo === 'rango' ? rangoHasta : undefined,
+        });
+        if (!cancelled) setFollowupTrendsData(data);
+      } catch {
+        if (!cancelled) setFollowupTrendsData([]);
+      }
+    };
+
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [tendenciaModo, anioCuatrimestre, cuatrimestre, rangoDesde, rangoHasta, rangoError]);
+
   const stats = [
     {
       label: 'Citas Hoy',
-      value: '8',
+      value: citasHoy !== null ? String(citasHoy) : '—',
       icon: Calendar,
       color: 'from-blue-500 to-purple-600',
       bgColor: 'bg-blue-50',
@@ -38,14 +128,15 @@ export function Dashboard() {
     },
     {
       label: 'Total Aprendices',
-      value: '156',
+      value: totalAprendices !== null ? String(totalAprendices) : '—',
       icon: Users,
       color: 'from-green-500 to-green-600',
       bgColor: 'bg-green-50',
       change: '+8',
       percentage: '+5%',
-      trend: 'up',
-      comparison: 'vs mes pasado'
+      trend: 'up' as const,
+      comparison: 'vs mes pasado',
+      showOnlyTotal: true,
     }
   ];
 
@@ -69,15 +160,6 @@ export function Dashboard() {
     { mes: 'Dic', citas: 52, seguimientos: 24, mensajes: 124 }
   ];
 
-  // Data for follow-up status trends
-  const followupTrendsData = [
-    { mes: 'Ago', estables: 12, observacion: 4, criticos: 2 },
-    { mes: 'Sep', estables: 14, observacion: 5, criticos: 2 },
-    { mes: 'Oct', estables: 15, observacion: 5, criticos: 2 },
-    { mes: 'Nov', estables: 16, observacion: 6, criticos: 2 },
-    { mes: 'Dic', estables: 18, observacion: 4, criticos: 2 }
-  ];
-
   const recentAppointments = [
     { time: '09:00', name: 'Ana García Pérez', status: 'pending', ficha: '2589634' },
     { time: '10:30', name: 'Carlos Rodríguez', status: 'pending', ficha: '2589635' },
@@ -98,7 +180,7 @@ export function Dashboard() {
           <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Inicio
           </h1>
-          <p className="text-slate-600">Bienvenido de nuevo, Dr. Paola Garizabalo</p>
+          <p className="text-slate-600">Bienvenido de nuevo, {displayName}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-slate-500">Hoy</p>
@@ -110,6 +192,25 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
+          const isTotalAprendices = 'showOnlyTotal' in stat && stat.showOnlyTotal;
+
+          if (isTotalAprendices) {
+            return (
+              <div
+                key={index}
+                className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+              >
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4`}>
+                  <Icon className="w-6 h-6 text-green-600" stroke="currentColor" />
+                </div>
+                <h3 className="text-3xl mb-1 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                  {stat.value}
+                </h3>
+                <p className="text-slate-600 text-sm">Total de aprendices</p>
+              </div>
+            );
+          }
+
           const TrendIcon = stat.trend === 'up' ? ArrowUpRight : ArrowDownRight;
           return (
             <div
@@ -180,7 +281,80 @@ export function Dashboard() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
           <div className="mb-6">
             <h2 className="text-xl text-slate-800 mb-1">Tendencia de Seguimientos</h2>
-            <p className="text-sm text-slate-500">Evolución por estado</p>
+            <div className="mt-2">
+              <div className="flex items-center gap-3 flex-nowrap">
+              <select
+                value={tendenciaModo}
+                onChange={(e) => setTendenciaModo(e.target.value as 'recientes' | 'cuatrimestre' | 'rango')}
+                className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              >
+                <option value="recientes">Recientes</option>
+                <option value="cuatrimestre">Cuatrimestre</option>
+                <option value="rango">Rango personalizado</option>
+              </select>
+
+              {tendenciaModo === 'cuatrimestre' && (
+                <>
+                  <input
+                    type="number"
+                    min={2000}
+                    max={2100}
+                    value={anioCuatrimestre}
+                    onChange={(e) => setAnioCuatrimestre(e.target.value)}
+                    placeholder="Año"
+                    className="w-24 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                  <select
+                    value={cuatrimestre}
+                    onChange={(e) => setCuatrimestre(e.target.value)}
+                    className="w-56 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  >
+                    <option value="1">Ene - Feb - Mar - Abr</option>
+                    <option value="2">May - Jun - Jul - Ago</option>
+                    <option value="3">Sep - Oct - Nov - Dic</option>
+                  </select>
+                </>
+              )}
+
+              {tendenciaModo === 'rango' && (
+                <>
+                  <input
+                    type="date"
+                    value={rangoDesde}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setRangoDesde(next);
+                      if (rangoHasta && !isRangeValid(next, rangoHasta)) {
+                        setRangoError('El rango no puede superar 4 meses.');
+                      } else {
+                        setRangoError('');
+                      }
+                    }}
+                    className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                  <input
+                    type="date"
+                    value={rangoHasta}
+                    min={rangoDesde || undefined}
+                    max={rangoDesde ? toDateInputValue(addMonths(new Date(`${rangoDesde}T00:00:00`), 4)) : undefined}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setRangoHasta(next);
+                      if (rangoDesde && !isRangeValid(rangoDesde, next)) {
+                        setRangoError('El rango no puede superar 4 meses.');
+                      } else {
+                        setRangoError('');
+                      }
+                    }}
+                    className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </>
+              )}
+              </div>
+              {rangoError && (
+                <span className="mt-2 block text-xs text-red-600">{rangoError}</span>
+              )}
+            </div>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={followupTrendsData}>

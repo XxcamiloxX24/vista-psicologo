@@ -3,8 +3,7 @@
 export default {
   content: [
     "./index.html",
-    // Asegúrate de incluir todos tus archivos JSX/TSX en src/
-    "./src/components/*.{js,ts,jsx,tsx}", 
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {},

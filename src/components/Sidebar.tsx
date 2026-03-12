@@ -1,13 +1,16 @@
-import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users } from 'lucide-react';
+import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut } from 'lucide-react';
+import { usePsychologist } from '../contexts/PsychologistContext';
 
 type Section = 'dashboard' | 'appointments' | 'messages' | 'followups' | 'students' | 'about' | 'settings';
 
 interface SidebarProps {
   activeSection: Section;
   onSectionChange: (section: Section) => void;
+  onLogout: () => void;
 }
 
-export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
+export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
+  const { displayName, initials } = usePsychologist();
   const menuItems = [
     { id: 'dashboard' as Section, label: 'Inicio', icon: Home },
     { id: 'appointments' as Section, label: 'Citas', icon: Calendar },
@@ -76,13 +79,20 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
         {/* User Info */}
         <div className="p-4 border-t border-purple-100/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
-              <span>DR</span>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white shrink-0">
+              <span>{initials}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm truncate text-slate-800">Dr. Paola Garizabalo</p>
+              <p className="text-sm truncate text-slate-800">{displayName}</p>
               <p className="text-xs text-slate-500">Psicólogo</p>
             </div>
+            <button
+              onClick={onLogout}
+              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-purple-600 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>

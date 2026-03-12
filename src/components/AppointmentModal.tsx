@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { X, Calendar, Clock, User } from 'lucide-react';
 
 interface AppointmentModalProps {
@@ -8,9 +9,20 @@ interface AppointmentModalProps {
 export function AppointmentModal({ isOpen, onClose }: AppointmentModalProps) {
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+  const modalContent = (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        zIndex: 2147483647,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(4px)',
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 p-6 flex items-center justify-between rounded-t-2xl">
           <h2 className="text-xl text-white">Agendar Nueva Cita</h2>
@@ -113,4 +125,6 @@ export function AppointmentModal({ isOpen, onClose }: AppointmentModalProps) {
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

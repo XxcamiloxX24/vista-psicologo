@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { Search, UserPlus, Mail, BookOpen, Building2, Hash, User, Eye, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
+import { createPortal } from 'react-dom';
+import { Search, UserPlus, Mail, BookOpen, Building2, Hash, User, Eye, X, Filter } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface Student {
   id: string;
@@ -214,13 +212,14 @@ export function Students({ onViewFollowup }: StudentsProps) {
           </h1>
           <p className="text-slate-600">Gestión de aprendices del SENA</p>
         </div>
-        <Button
+        <button
+          type="button"
           onClick={() => setShowEnrollModal(true)}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
         >
-          <UserPlus className="w-4 h-4 mr-2" />
+          <UserPlus className="w-4 h-4 shrink-0" />
           Inscribir Aprendiz
-        </Button>
+        </button>
       </div>
 
       {/* Search and Filters */}
@@ -236,42 +235,58 @@ export function Students({ onViewFollowup }: StudentsProps) {
               className="pl-12"
             />
           </div>
-          <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los campos</SelectItem>
-              <SelectItem value="name">Nombre</SelectItem>
-              <SelectItem value="email">Correo</SelectItem>
-              <SelectItem value="id">ID</SelectItem>
-              <SelectItem value="program">Programa</SelectItem>
-              <SelectItem value="faculty">Facultad</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+              className="w-full pl-11 pr-10 py-3 rounded-xl border-2 border-purple-200/60 bg-gradient-to-br from-slate-50 to-purple-50/30 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 appearance-none cursor-pointer"
+            >
+              <option value="all">Todos los campos</option>
+              <option value="name">Nombre</option>
+              <option value="email">Correo</option>
+              <option value="id">ID</option>
+              <option value="program">Programa</option>
+              <option value="faculty">Facultad</option>
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Student Profile Modal */}
-      {selectedStudent && (
-        <Dialog open={!!selectedStudent} onOpenChange={() => setSelectedStudent(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Perfil del Aprendiz
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-6">
+      {selectedStudent && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setSelectedStudent(null)}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Perfil del Aprendiz</h2>
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-2xl text-slate-800 mb-1">{selectedStudent.name}</h3>
-                    <p className="text-slate-600">{selectedStudent.program}</p>
-                  </div>
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl">
-                    {selectedStudent.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                  </div>
+                <div>
+                  <h3 className="text-2xl text-slate-800 mb-1">{selectedStudent.name}</h3>
+                  <p className="text-slate-600">{selectedStudent.program}</p>
                 </div>
               </div>
 
@@ -284,7 +299,6 @@ export function Students({ onViewFollowup }: StudentsProps) {
                       <p className="text-slate-800">{selectedStudent.id}</p>
                     </div>
                   </div>
-                  
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                     <Mail className="w-5 h-5 text-purple-600" />
                     <div>
@@ -292,7 +306,6 @@ export function Students({ onViewFollowup }: StudentsProps) {
                       <p className="text-slate-800 text-sm">{selectedStudent.email}</p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                     <BookOpen className="w-5 h-5 text-purple-600" />
                     <div>
@@ -301,7 +314,6 @@ export function Students({ onViewFollowup }: StudentsProps) {
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                     <Building2 className="w-5 h-5 text-purple-600" />
@@ -310,7 +322,6 @@ export function Students({ onViewFollowup }: StudentsProps) {
                       <p className="text-slate-800 text-sm">{selectedStudent.faculty}</p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                     <User className="w-5 h-5 text-purple-600" />
                     <div>
@@ -318,7 +329,6 @@ export function Students({ onViewFollowup }: StudentsProps) {
                       <p className="text-slate-800">{selectedStudent.phone}</p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                     <BookOpen className="w-5 h-5 text-purple-600" />
                     <div>
@@ -330,16 +340,17 @@ export function Students({ onViewFollowup }: StudentsProps) {
               </div>
 
               {selectedStudent.hasFollowup && (
-                <Button
+                <button
+                  type="button"
                   onClick={() => {
                     setSelectedStudent(null);
                     onViewFollowup?.(selectedStudent.id);
                   }}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all"
                 >
-                  <Eye className="w-4 h-4 mr-2" />
+                  <Eye className="w-4 h-4 shrink-0" />
                   Ver Seguimiento
-                </Button>
+                </button>
               )}
 
               {!selectedStudent.hasFollowup && (
@@ -348,123 +359,143 @@ export function Students({ onViewFollowup }: StudentsProps) {
                 </div>
               )}
             </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Enroll Student Modal */}
-      <Dialog open={showEnrollModal} onOpenChange={setShowEnrollModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Inscribir Nuevo Aprendiz
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nombre Completo *</Label>
-                <Input
-                  id="name"
-                  value={newStudent.name}
-                  onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
-                  placeholder="Nombre completo del aprendiz"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="id">Documento de Identidad *</Label>
-                <Input
-                  id="id"
-                  value={newStudent.id}
-                  onChange={(e) => setNewStudent({ ...newStudent, id: e.target.value })}
-                  placeholder="Número de documento"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newStudent.email}
-                  onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                  placeholder="correo@sena.edu.co"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
-                <Input
-                  id="phone"
-                  value={newStudent.phone}
-                  onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
-                  placeholder="3001234567"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="faculty">Facultad *</Label>
-                <Select value={newStudent.faculty} onValueChange={(value) => setNewStudent({ ...newStudent, faculty: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione facultad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {faculties.map((faculty) => (
-                      <SelectItem key={faculty} value={faculty}>{faculty}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="program">Programa de Formación *</Label>
-                <Select value={newStudent.program} onValueChange={(value) => setNewStudent({ ...newStudent, program: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione programa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {programs.map((program) => (
-                      <SelectItem key={program} value={program}>{program}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ficha">Número de Ficha *</Label>
-              <Input
-                id="ficha"
-                value={newStudent.ficha}
-                onChange={(e) => setNewStudent({ ...newStudent, ficha: e.target.value })}
-                placeholder="Ej: 2589634"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
+      {showEnrollModal && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowEnrollModal(false)}
+        >
+          <div
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Inscribir Nuevo Aprendiz</h2>
+              <button
+                type="button"
                 onClick={() => setShowEnrollModal(false)}
-                className="flex-1"
+                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
               >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleEnrollStudent}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
-              >
-                Inscribir Aprendiz
-              </Button>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nombre Completo *</Label>
+                  <Input
+                    id="name"
+                    value={newStudent.name}
+                    onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                    placeholder="Nombre completo del aprendiz"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="id">Documento de Identidad *</Label>
+                  <Input
+                    id="id"
+                    value={newStudent.id}
+                    onChange={(e) => setNewStudent({ ...newStudent, id: e.target.value })}
+                    placeholder="Número de documento"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Correo Electrónico *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newStudent.email}
+                    onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                    placeholder="correo@sena.edu.co"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Teléfono</Label>
+                  <Input
+                    id="phone"
+                    value={newStudent.phone}
+                    onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
+                    placeholder="3001234567"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="faculty">Facultad *</Label>
+                  <select
+                    id="faculty"
+                    value={newStudent.faculty}
+                    onChange={(e) => setNewStudent({ ...newStudent, faculty: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                  >
+                    <option value="">Seleccione facultad</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty} value={faculty}>{faculty}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="program">Programa de Formación *</Label>
+                  <select
+                    id="program"
+                    value={newStudent.program}
+                    onChange={(e) => setNewStudent({ ...newStudent, program: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                  >
+                    <option value="">Seleccione programa</option>
+                    {programs.map((program) => (
+                      <option key={program} value={program}>{program}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ficha">Número de Ficha *</Label>
+                <Input
+                  id="ficha"
+                  value={newStudent.ficha}
+                  onChange={(e) => setNewStudent({ ...newStudent, ficha: e.target.value })}
+                  placeholder="Ej: 2589634"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEnrollModal(false)}
+                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEnrollStudent}
+                  className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all"
+                >
+                  Inscribir Aprendiz
+                </button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>,
+        document.body
+      )}
 
       {/* Students Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

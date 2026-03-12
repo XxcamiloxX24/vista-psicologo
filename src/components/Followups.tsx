@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, Filter } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, X, Filter } from 'lucide-react';
 import { StudentProfile } from './StudentProfile.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 
 interface Student {
@@ -187,13 +185,14 @@ export function Followups() {
           <p className="text-slate-600">Listado de aprendices con seguimiento activo</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
+          <button
+            type="button"
             onClick={() => setShowNewFollowupModal(true)}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 shrink-0" />
             Nuevo Seguimiento
-          </Button>
+          </button>
           <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg border border-green-200">
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
             <span className="text-sm text-green-700">Estable</span>
@@ -222,132 +221,150 @@ export function Followups() {
               className="pl-12"
             />
           </div>
-          <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filtrar por..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los campos</SelectItem>
-              <SelectItem value="name">Nombre</SelectItem>
-              <SelectItem value="email">Correo</SelectItem>
-              <SelectItem value="id">ID</SelectItem>
-              <SelectItem value="program">Programa</SelectItem>
-              <SelectItem value="ficha">Ficha</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-500" />
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+              className="w-full pl-11 pr-10 py-3 rounded-xl border-2 border-purple-200/60 bg-gradient-to-br from-slate-50 to-purple-50/30 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 appearance-none cursor-pointer"
+            >
+              <option value="all">Todos los campos</option>
+              <option value="name">Nombre</option>
+              <option value="email">Correo</option>
+              <option value="id">ID</option>
+              <option value="program">Programa</option>
+              <option value="ficha">Ficha</option>
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-purple-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* New Followup Modal */}
-      <Dialog open={showNewFollowupModal} onOpenChange={setShowNewFollowupModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Crear Nuevo Seguimiento
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="studentId">Seleccionar Aprendiz *</Label>
-              <Select
-                value={newFollowup.studentId}
-                onValueChange={(value) => {
-                  const student = availableStudents.find(s => s.id === value);
-                  if (student) {
-                    setNewFollowup({
-                      ...newFollowup,
-                      studentId: value,
-                      studentName: student.name,
-                      email: student.email,
-                      ficha: student.ficha,
-                      program: student.program
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un aprendiz">
-                    {newFollowup.studentName || 'Seleccione un aprendiz'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableStudents.map(student => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.name} - Ficha: {student.ficha}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {newFollowup.studentId && (
-              <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-slate-500">Correo</p>
-                    <p className="text-sm text-slate-800">{newFollowup.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Ficha</p>
-                    <p className="text-sm text-slate-800">{newFollowup.ficha}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Programa</p>
-                  <p className="text-sm text-slate-800">{newFollowup.program}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Estado Inicial *</Label>
-              <Select
-                value={newFollowup.status}
-                onValueChange={(value) => setNewFollowup({ ...newFollowup, status: value as 'stable' | 'observation' | 'critical' })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar estado">
-                    {newFollowup.status === 'stable' ? 'Estable' : 
-                     newFollowup.status === 'observation' ? 'En Observación' : 'Crítico'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="stable">Estable</SelectItem>
-                  <SelectItem value="observation">En Observación</SelectItem>
-                  <SelectItem value="critical">Crítico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="initialNotes">Notas Iniciales</Label>
-              <Textarea
-                id="initialNotes"
-                value={newFollowup.initialNotes}
-                onChange={(e) => setNewFollowup({ ...newFollowup, initialNotes: e.target.value })}
-                placeholder="Escriba observaciones iniciales sobre el aprendiz..."
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
+      {showNewFollowupModal && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowNewFollowupModal(false)}
+        >
+          <div
+            className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Crear Nuevo Seguimiento</h2>
+              <button
+                type="button"
                 onClick={() => setShowNewFollowupModal(false)}
-                className="flex-1"
+                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
               >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleCreateFollowup}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
-              >
-                Crear Seguimiento
-              </Button>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="studentId">Seleccionar Aprendiz *</Label>
+                <select
+                  id="studentId"
+                  value={newFollowup.studentId}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const student = availableStudents.find(s => s.id === value);
+                    if (student) {
+                      setNewFollowup({
+                        ...newFollowup,
+                        studentId: value,
+                        studentName: student.name,
+                        email: student.email,
+                        ficha: student.ficha,
+                        program: student.program
+                      });
+                    }
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                >
+                  <option value="">Seleccione un aprendiz</option>
+                  {availableStudents.map(student => (
+                    <option key={student.id} value={student.id}>
+                      {student.name} - Ficha: {student.ficha}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {newFollowup.studentId && (
+                <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-slate-500">Correo</p>
+                      <p className="text-sm text-slate-800">{newFollowup.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Ficha</p>
+                      <p className="text-sm text-slate-800">{newFollowup.ficha}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Programa</p>
+                    <p className="text-sm text-slate-800">{newFollowup.program}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Estado Inicial *</Label>
+                <select
+                  id="status"
+                  value={newFollowup.status}
+                  onChange={(e) => setNewFollowup({ ...newFollowup, status: e.target.value as 'stable' | 'observation' | 'critical' })}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                >
+                  <option value="stable">Estable</option>
+                  <option value="observation">En Observación</option>
+                  <option value="critical">Crítico</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="initialNotes">Notas Iniciales</Label>
+                <Textarea
+                  id="initialNotes"
+                  value={newFollowup.initialNotes}
+                  onChange={(e) => setNewFollowup({ ...newFollowup, initialNotes: e.target.value })}
+                  placeholder="Escriba observaciones iniciales sobre el aprendiz..."
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewFollowupModal(false)}
+                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateFollowup}
+                  className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all"
+                >
+                  Crear Seguimiento
+                </button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>,
+        document.body
+      )}
 
       {/* Students Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

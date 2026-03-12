@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Send, Paperclip, MoreVertical, Plus, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface Chat {
   id: number;
@@ -196,67 +193,87 @@ export function Messages() {
           </h1>
           <p className="text-slate-600">Comunicación con aprendices</p>
         </div>
-        <Button
+        <button
+          type="button"
           onClick={() => setShowNewChatModal(true)}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
         >
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="w-4 h-4 shrink-0" />
           Nueva Conversación
-        </Button>
+        </button>
       </div>
 
       {/* New Chat Modal */}
-      <Dialog open={showNewChatModal} onOpenChange={setShowNewChatModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Nueva Conversación
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="student">Seleccionar Aprendiz</Label>
-              <Select 
-                value={newChat.studentName} 
-                onValueChange={(value) => {
-                  const student = availableStudents.find(s => s.name === value);
-                  setNewChat({ studentName: value, ficha: student?.ficha || '' });
-                }}
+      {showNewChatModal && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowNewChatModal(false)}
+        >
+          <div
+            className="relative w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Nueva Conversación</h2>
+              <button
+                type="button"
+                onClick={() => setShowNewChatModal(false)}
+                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un aprendiz" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableStudents.map((student) => (
-                    <SelectItem key={student.ficha} value={student.name}>
-                      {student.name} - Ficha: {student.ficha}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowNewChatModal(false)}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleCreateChat}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
-              >
-                Crear Conversación
-              </Button>
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="student">Seleccionar Aprendiz</Label>
+                <select
+                  id="student"
+                  value={newChat.studentName}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const student = availableStudents.find(s => s.name === value);
+                    setNewChat({ studentName: value, ficha: student?.ficha || '' });
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                >
+                  <option value="">Seleccione un aprendiz</option>
+                  {availableStudents.map((student) => (
+                    <option key={student.ficha} value={student.name}>
+                      {student.name} - Ficha: {student.ficha}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowNewChatModal(false)}
+                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 text-slate-700 hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateChat}
+                  className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all"
+                >
+                  Crear Conversación
+                </button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>,
+        document.body
+      )}
 
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden h-[calc(100vh-240px)]">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden h-[calc(100vh-8rem)]">
         <div className="grid grid-cols-3 h-full">
           {/* Chat List */}
           <div className="border-r border-purple-100/50 flex flex-col">

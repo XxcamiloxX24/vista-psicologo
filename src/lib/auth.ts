@@ -1,5 +1,6 @@
 const BASE_URL = 'http://healthymind10.runasp.net';
 const TOKEN_KEY = 'healthymind_token';
+const PSICOLOGO_ID_KEY = 'healthymind_psicologo_id';
 
 export interface LoginCredentials {
   correoPersonal: string;
@@ -9,7 +10,9 @@ export interface LoginCredentials {
 export interface LoginResponse {
   token?: string;
   accessToken?: string;
-  data?: { token?: string; accessToken?: string };
+  data?: { token?: string; accessToken?: string; psicologoId?: number };
+  psicologoId?: number;
+  psiCodigo?: number;
 }
 
 export async function login(credentials: LoginCredentials): Promise<string> {
@@ -40,6 +43,10 @@ export async function login(credentials: LoginCredentials): Promise<string> {
   }
 
   setToken(token);
+  const psicologoId = data.psicologoId ?? data.psiCodigo ?? data.data?.psicologoId;
+  if (typeof psicologoId === 'number') {
+    localStorage.setItem(PSICOLOGO_ID_KEY, String(psicologoId));
+  }
   return token;
 }
 
@@ -53,6 +60,12 @@ export function getToken(): string | null {
 
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(PSICOLOGO_ID_KEY);
+}
+
+export function getPsychologistId(): number | null {
+  const id = localStorage.getItem(PSICOLOGO_ID_KEY);
+  return id ? parseInt(id, 10) : null;
 }
 
 export function isAuthenticated(): boolean {

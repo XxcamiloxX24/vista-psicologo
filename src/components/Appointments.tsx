@@ -1,10 +1,9 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Clock, User, Plus, Check, X, RotateCcw, ChevronLeft, ChevronRight, Edit, FileText } from 'lucide-react';
 import { AppointmentModal } from './AppointmentModal.tsx';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 
 type AppointmentStatus = 'completed' | 'rescheduled' | 'cancelled' | 'pending';
@@ -326,27 +325,39 @@ export function Appointments() {
       </div>
 
       {/* Appointment Detail Modal */}
-      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Detalles de la Cita
-            </DialogTitle>
-          </DialogHeader>
+      {showDetailModal && selectedAppointment && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{
+            zIndex: 2147483647,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowDetailModal(false)}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-white">Detalles de la Cita</h2>
+              <button
+                type="button"
+                onClick={() => setShowDetailModal(false)}
+                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-          {selectedAppointment && (
+            <div className="p-6">
             <div className="space-y-6">
               {/* Patient Info */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl text-slate-800 mb-1">{selectedAppointment.studentName}</h3>
-                    <p className="text-sm text-slate-600">Ficha: {selectedAppointment.ficha}</p>
-                    <p className="text-sm text-slate-600">{selectedAppointment.studentEmail}</p>
-                  </div>
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl">
-                    {selectedAppointment.studentName.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                  </div>
+                <div>
+                  <h3 className="text-xl text-slate-800 mb-1">{selectedAppointment.studentName}</h3>
+                  <p className="text-sm text-slate-600">Ficha: {selectedAppointment.ficha}</p>
+                  <p className="text-sm text-slate-600">{selectedAppointment.studentEmail}</p>
                 </div>
               </div>
 
@@ -389,17 +400,17 @@ export function Appointments() {
 
                   <div className="bg-slate-50 rounded-lg p-4">
                     <Label htmlFor="status">Estado de la Cita</Label>
-                    <Select value={editedStatus} onValueChange={(value) => setEditedStatus(value as AppointmentStatus)}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pendiente</SelectItem>
-                        <SelectItem value="completed">Completada</SelectItem>
-                        <SelectItem value="rescheduled">Reprogramada</SelectItem>
-                        <SelectItem value="cancelled">Cancelada</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      id="status"
+                      value={editedStatus}
+                      onChange={(e) => setEditedStatus(e.target.value as AppointmentStatus)}
+                      className="mt-2 w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                      <option value="pending">Pendiente</option>
+                      <option value="completed">Completada</option>
+                      <option value="rescheduled">Reprogramada</option>
+                      <option value="cancelled">Cancelada</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -428,22 +439,25 @@ export function Appointments() {
                 <Button
                   variant="outline"
                   onClick={() => setShowDetailModal(false)}
-                  className="flex-1"
+                  className="flex-1 rounded-2xl"
                 >
                   Cancelar
                 </Button>
-                <Button
+                <button
+                  type="button"
                   onClick={handleSaveAppointment}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:shadow-lg transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 text-white font-medium hover:shadow-lg transition-all"
                 >
-                  <Edit className="w-4 h-4 mr-2" />
+                  <Edit className="w-4 h-4 shrink-0" strokeWidth={2} />
                   Guardar Cambios
-                </Button>
+                </button>
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </div>,
+        document.body
+      )}
 
       <AppointmentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
