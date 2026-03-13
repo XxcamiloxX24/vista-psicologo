@@ -3,6 +3,42 @@ import { getPsychologistIdFromToken } from './psychologist';
 
 const BASE_URL = 'http://healthymind10.runasp.net';
 
+/* --- API SeguimientoAprendiz/mis-seguimientos --- */
+export interface SeguimientoListarResult {
+  segCodigo: number;
+  aprendiz: {
+    aprFicCodigo: number;
+    aprendiz: {
+      codigo: number;
+      nombres?: { primerNombre?: string | null; segundoNombre?: string | null };
+      apellidos?: { primerApellido?: string | null; segundoApellido?: string | null };
+      contacto?: { correoInstitucional?: string | null };
+    };
+    ficha: {
+      ficCodigo: number;
+      programaFormacion?: { progNombre?: string };
+    };
+  };
+  estadoSeguimiento: string;
+}
+
+export interface SeguimientoListarResponse {
+  paginaActual: number;
+  tamanoPagina: number;
+  totalRegistros: number;
+  totalPaginas: number;
+  resultados: SeguimientoListarResult[];
+}
+
+export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise<SeguimientoListarResponse> {
+  const url = new URL(`${BASE_URL}/api/SeguimientoAprendiz/mis-seguimientos`);
+  url.searchParams.set('Pagina', String(pagina));
+  url.searchParams.set('TamanoPagina', String(tamanoPagina));
+  const response = await fetch(url.toString(), { headers: getAuthHeaders() });
+  if (!response.ok) throw new Error('Error al listar seguimientos');
+  return response.json();
+}
+
 export interface TendenciaEstadoItem {
   mes: string;
   estables: number;

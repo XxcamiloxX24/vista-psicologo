@@ -12,6 +12,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Login } from "./components/Login";
 import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
 import { PsychologistProvider } from "./contexts/PsychologistContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { isAuthenticated as checkAuth, removeToken } from "./lib/auth";
 
 type Section =
@@ -70,13 +71,19 @@ export default function App() {
   // Pantalla de login o términos (no autenticado)
   if (!isAuthenticated) {
     if (authView === "terms") {
-      return <TermsAndPrivacy onBack={() => setAuthView("login")} />;
+      return (
+        <ThemeProvider>
+          <TermsAndPrivacy onBack={() => setAuthView("login")} />
+        </ThemeProvider>
+      );
     }
     return (
-      <Login
-        onLogin={() => setIsAuthenticated(true)}
-        onViewTerms={() => setAuthView("terms")}
-      />
+      <ThemeProvider>
+        <Login
+          onLogin={() => setIsAuthenticated(true)}
+          onViewTerms={() => setAuthView("terms")}
+        />
+      </ThemeProvider>
     );
   }
 
@@ -103,15 +110,15 @@ export default function App() {
 
   const logoutOverlay = isLoggingOut && createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/95 backdrop-blur-md">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-6 min-w-[280px]">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-6 min-w-[280px]">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-purple-200 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full border-4 border-purple-200 dark:border-purple-500/50 flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
           </div>
         </div>
         <div className="text-center">
-          <p className="text-lg font-semibold text-slate-800">Cerrando sesión</p>
-          <p className="text-sm text-slate-500 mt-1">Un momento, por favor...</p>
+          <p className="text-lg font-semibold text-slate-800 dark:text-slate-200">Cerrando sesión</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Un momento, por favor...</p>
         </div>
         <div className="w-full h-2 rounded-full bg-purple-100 overflow-hidden">
           <div
@@ -125,8 +132,9 @@ export default function App() {
   );
 
   return (
-    <PsychologistProvider>
-      <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 relative">
+    <ThemeProvider>
+      <PsychologistProvider>
+        <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative">
         {logoutOverlay}
         <Sidebar
           activeSection={activeSection}
@@ -141,6 +149,7 @@ export default function App() {
         </main>
 
       </div>
-    </PsychologistProvider>
+      </PsychologistProvider>
+    </ThemeProvider>
   );
 }

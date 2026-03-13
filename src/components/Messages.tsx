@@ -191,7 +191,7 @@ export function Messages() {
           <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Mensajes
           </h1>
-          <p className="text-slate-600">Comunicación con aprendices</p>
+          <p className="text-slate-600 dark:text-slate-400">Comunicación con aprendices</p>
         </div>
         <button
           type="button"
@@ -212,10 +212,9 @@ export function Messages() {
             backgroundColor: 'rgba(0,0,0,0.5)',
             backdropFilter: 'blur(4px)',
           }}
-          onClick={(e) => e.target === e.currentTarget && setShowNewChatModal(false)}
         >
           <div
-            className="relative w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="relative w-full max-w-md overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
@@ -240,7 +239,7 @@ export function Messages() {
                     const student = availableStudents.find(s => s.name === value);
                     setNewChat({ studentName: value, ficha: student?.ficha || '' });
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-purple-200/50 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
                 >
                   <option value="">Seleccione un aprendiz</option>
                   {availableStudents.map((student) => (
@@ -255,7 +254,7 @@ export function Messages() {
                 <button
                   type="button"
                   onClick={() => setShowNewChatModal(false)}
-                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 text-slate-700 hover:bg-slate-50 transition-all"
+                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
                 >
                   Cancelar
                 </button>
@@ -273,7 +272,7 @@ export function Messages() {
         document.body
       )}
 
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden h-[calc(100vh-8rem)]">
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 dark:border-slate-600/50 shadow-sm overflow-hidden h-[calc(100vh-8rem)]">
         <div className="grid grid-cols-3 h-full">
           {/* Chat List */}
           <div className="border-r border-purple-100/50 flex flex-col">
@@ -286,7 +285,7 @@ export function Messages() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar conversaciones..."
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 text-sm"
+                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-purple-200/50 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 text-sm"
                 />
               </div>
             </div>
@@ -302,7 +301,7 @@ export function Messages() {
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-slate-800 text-sm">{chat.name}</h3>
+                    <h3 className="text-slate-800 dark:text-slate-200 text-sm">{chat.name}</h3>
                     <span className="text-xs text-slate-500">{chat.timestamp}</span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -326,8 +325,8 @@ export function Messages() {
               <div className="p-4 border-b border-purple-100/50 bg-gradient-to-r from-blue-50/50 to-purple-50/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-slate-800">{currentChat.name}</h2>
-                    <p className="text-xs text-slate-500">Ficha: {currentChat.ficha}</p>
+                    <h2 className="text-slate-800 dark:text-slate-200">{currentChat.name}</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Ficha: {currentChat.ficha}</p>
                   </div>
                   <button className="w-8 h-8 rounded-lg hover:bg-purple-100/50 flex items-center justify-center transition-all">
                     <MoreVertical className="w-5 h-5 text-slate-600" />
@@ -347,13 +346,13 @@ export function Messages() {
                     className={`max-w-[70%] ${
                       msg.sender === 'psychologist'
                         ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl rounded-tr-sm'
-                        : 'bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-2xl rounded-tl-sm'
                     } px-4 py-3`}
                   >
                     <p className="text-sm">{msg.text}</p>
                     <p
                       className={`text-xs mt-1 ${
-                        msg.sender === 'psychologist' ? 'text-white/70' : 'text-slate-500'
+                        msg.sender === 'psychologist' ? 'text-white/70' : 'text-slate-500 dark:text-slate-400'
                       }`}
                     >
                       {msg.timestamp}
@@ -376,7 +375,7 @@ export function Messages() {
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Escribe un mensaje..."
-                  className="flex-1 px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                  className="flex-1 px-4 py-3 rounded-xl border border-purple-200/50 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
                 />
                 <button
                   onClick={handleSend}

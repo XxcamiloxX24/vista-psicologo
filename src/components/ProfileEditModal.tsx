@@ -68,13 +68,12 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
     <div
       className="fixed inset-0 flex items-center justify-center bg-black/60 p-4"
       style={{ zIndex: 2147483647 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-profile-title"
     >
       <div
-        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+        className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -94,14 +93,14 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 p-6">
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 p-3 text-sm text-red-700 dark:text-red-300">
               {error}
             </div>
           )}
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="psiNombre" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiNombre" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                   Nombre
                 </label>
                 <input
@@ -109,11 +108,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                   type="text"
                   value={formData.psiNombre ?? ''}
                   onChange={(e) => handleChange('psiNombre', e.target.value)}
-                  className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 />
               </div>
               <div>
-                <label htmlFor="psiApellido" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiApellido" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                   Apellido
                 </label>
                 <input
@@ -121,12 +120,12 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                   type="text"
                   value={formData.psiApellido ?? ''}
                   onChange={(e) => handleChange('psiApellido', e.target.value)}
-                  className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 />
               </div>
             </div>
             <div>
-              <label htmlFor="psiDocumento" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiDocumento" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Documento
               </label>
               <input
@@ -134,11 +133,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="text"
                 value={formData.psiDocumento ?? ''}
                 onChange={(e) => handleChange('psiDocumento', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiEspecialidad" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiEspecialidad" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Especialidad
               </label>
               <input
@@ -146,11 +145,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="text"
                 value={formData.psiEspecialidad ?? ''}
                 onChange={(e) => handleChange('psiEspecialidad', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiFechaNac" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiFechaNac" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Fecha de nacimiento
               </label>
               <input
@@ -158,11 +157,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="date"
                 value={formData.psiFechaNac ?? ''}
                 onChange={(e) => handleChange('psiFechaNac', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiTelefono" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiTelefono" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Teléfono
               </label>
               <input
@@ -170,11 +169,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="tel"
                 value={formData.psiTelefono ?? ''}
                 onChange={(e) => handleChange('psiTelefono', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiDireccion" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiDireccion" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Dirección
               </label>
               <input
@@ -182,11 +181,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="text"
                 value={formData.psiDireccion ?? ''}
                 onChange={(e) => handleChange('psiDireccion', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiCorreoInstitucional" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiCorreoInstitucional" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Correo institucional
               </label>
               <input
@@ -194,11 +193,11 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="email"
                 value={formData.psiCorreoInstitucional ?? ''}
                 onChange={(e) => handleChange('psiCorreoInstitucional', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
             <div>
-              <label htmlFor="psiCorreoPersonal" className="mb-2 block text-sm text-slate-700">
+                <label htmlFor="psiCorreoPersonal" className="mb-2 block text-sm text-slate-700 dark:text-slate-300">
                 Correo personal
               </label>
               <input
@@ -206,7 +205,7 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
                 type="email"
                 value={formData.psiCorreoPersonal ?? ''}
                 onChange={(e) => handleChange('psiCorreoPersonal', e.target.value)}
-                className="w-full rounded-xl border border-purple-200/50 bg-slate-50 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                className="w-full rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               />
             </div>
           </div>
@@ -214,7 +213,7 @@ export function ProfileEditModal({ isOpen, onClose, onSaveSuccess, onSaveError }
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-purple-200/50 px-4 py-3 text-slate-700 transition-colors hover:bg-slate-50"
+              className="flex-1 rounded-xl border border-purple-200/50 dark:border-slate-600 px-4 py-3 text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Cancelar
             </button>

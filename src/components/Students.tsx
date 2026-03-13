@@ -210,7 +210,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
           <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Aprendices
           </h1>
-          <p className="text-slate-600">Gestión de aprendices del SENA</p>
+          <p className="text-slate-600 dark:text-slate-400">Gestión de aprendices del SENA</p>
         </div>
         <button
           type="button"
@@ -223,7 +223,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm p-6">
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 dark:border-slate-600/50 shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-3 relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -240,7 +240,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-              className="w-full pl-11 pr-10 py-3 rounded-xl border-2 border-purple-200/60 bg-gradient-to-br from-slate-50 to-purple-50/30 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 appearance-none cursor-pointer"
+              className="w-full pl-11 pr-10 py-3 rounded-xl border-2 border-purple-200/60 dark:border-slate-600 bg-gradient-to-br from-slate-50 to-purple-50/30 dark:from-slate-700 dark:to-slate-800 text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-400 appearance-none cursor-pointer"
             >
               <option value="all">Todos los campos</option>
               <option value="name">Nombre</option>
@@ -265,10 +265,9 @@ export function Students({ onViewFollowup }: StudentsProps) {
             backgroundColor: 'rgba(0,0,0,0.5)',
             backdropFilter: 'blur(4px)',
           }}
-          onClick={(e) => e.target === e.currentTarget && setSelectedStudent(null)}
         >
           <div
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
@@ -283,57 +282,57 @@ export function Students({ onViewFollowup }: StudentsProps) {
             </div>
 
             <div className="p-6 space-y-6">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-700 dark:to-purple-900/30 rounded-xl p-6">
                 <div>
-                  <h3 className="text-2xl text-slate-800 mb-1">{selectedStudent.name}</h3>
-                  <p className="text-slate-600">{selectedStudent.program}</p>
+                  <h3 className="text-2xl text-slate-800 dark:text-slate-200 mb-1">{selectedStudent.name}</h3>
+                  <p className="text-slate-600 dark:text-slate-400">{selectedStudent.program}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <Hash className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="text-xs text-slate-500">ID</p>
-                      <p className="text-slate-800">{selectedStudent.id}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">ID</p>
+                      <p className="text-slate-800 dark:text-slate-200">{selectedStudent.id}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <Mail className="w-5 h-5 text-purple-600" />
                     <div>
                       <p className="text-xs text-slate-500">Correo</p>
                       <p className="text-slate-800 text-sm">{selectedStudent.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <BookOpen className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="text-xs text-slate-500">Ficha</p>
-                      <p className="text-slate-800">{selectedStudent.ficha}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Ficha</p>
+                      <p className="text-slate-800 dark:text-slate-200">{selectedStudent.ficha}</p>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <Building2 className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="text-xs text-slate-500">Facultad</p>
-                      <p className="text-slate-800 text-sm">{selectedStudent.faculty}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Facultad</p>
+                      <p className="text-slate-800 dark:text-slate-200 text-sm">{selectedStudent.faculty}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <User className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="text-xs text-slate-500">Teléfono</p>
-                      <p className="text-slate-800">{selectedStudent.phone}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Teléfono</p>
+                      <p className="text-slate-800 dark:text-slate-200">{selectedStudent.phone}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                     <BookOpen className="w-5 h-5 text-purple-600" />
                     <div>
-                      <p className="text-xs text-slate-500">Fecha de Inscripción</p>
-                      <p className="text-slate-800">{new Date(selectedStudent.enrollmentDate).toLocaleDateString('es-ES')}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Fecha de Inscripción</p>
+                      <p className="text-slate-800 dark:text-slate-200">{new Date(selectedStudent.enrollmentDate).toLocaleDateString('es-ES')}</p>
                     </div>
                   </div>
                 </div>
@@ -354,8 +353,8 @@ export function Students({ onViewFollowup }: StudentsProps) {
               )}
 
               {!selectedStudent.hasFollowup && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                  <p className="text-sm text-yellow-700">Este aprendiz aún no tiene seguimiento asignado</p>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg p-4 text-center">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-400">Este aprendiz aún no tiene seguimiento asignado</p>
                 </div>
               )}
             </div>
@@ -373,10 +372,9 @@ export function Students({ onViewFollowup }: StudentsProps) {
             backgroundColor: 'rgba(0,0,0,0.5)',
             backdropFilter: 'blur(4px)',
           }}
-          onClick={(e) => e.target === e.currentTarget && setShowEnrollModal(false)}
         >
           <div
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
@@ -441,7 +439,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
                     id="faculty"
                     value={newStudent.faculty}
                     onChange={(e) => setNewStudent({ ...newStudent, faculty: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
                   >
                     <option value="">Seleccione facultad</option>
                     {faculties.map((faculty) => (
@@ -455,7 +453,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
                     id="program"
                     value={newStudent.program}
                     onChange={(e) => setNewStudent({ ...newStudent, program: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-purple-200/50 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-purple-500/50 bg-slate-50 dark:bg-slate-700 dark:text-slate-200"
                   >
                     <option value="">Seleccione programa</option>
                     {programs.map((program) => (
@@ -479,7 +477,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
                 <button
                   type="button"
                   onClick={() => setShowEnrollModal(false)}
-                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 text-slate-700 hover:bg-slate-50 transition-all"
+                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
                 >
                   Cancelar
                 </button>
@@ -503,14 +501,14 @@ export function Students({ onViewFollowup }: StudentsProps) {
           <button
             key={student.id}
             onClick={() => setSelectedStudent(student)}
-            className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 hover:shadow-lg transition-all text-left group"
+            className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 hover:shadow-lg transition-all text-left group"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-slate-800 mb-1 group-hover:text-purple-700 transition-colors">
+                <h3 className="text-slate-800 dark:text-slate-200 mb-1 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
                   {student.name}
                 </h3>
-                <p className="text-sm text-slate-500">ID: {student.id}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">ID: {student.id}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
                 {student.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
@@ -518,30 +516,30 @@ export function Students({ onViewFollowup }: StudentsProps) {
             </div>
 
             <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                 <Mail className="w-4 h-4 text-purple-500" />
                 <span className="truncate">{student.email}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                 <BookOpen className="w-4 h-4 text-purple-500" />
                 <span className="truncate">{student.program}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                 <Building2 className="w-4 h-4 text-purple-500" />
                 <span className="truncate">{student.faculty}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-purple-100/50">
-              <span className="text-xs text-slate-500">Ficha: {student.ficha}</span>
+            <div className="flex items-center justify-between pt-4 border-t border-purple-100/50 dark:border-slate-600/50">
+              <span className="text-xs text-slate-500 dark:text-slate-400">Ficha: {student.ficha}</span>
               <span className="text-xs text-purple-600 group-hover:underline">
                 Ver perfil →
               </span>
             </div>
 
             {student.hasFollowup && (
-              <div className="mt-3 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg text-center">
-                <p className="text-xs text-green-700">Con seguimiento activo</p>
+              <div className="mt-3 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50 rounded-lg text-center">
+                <p className="text-xs text-green-700 dark:text-green-400">Con seguimiento activo</p>
               </div>
             )}
           </button>
@@ -549,9 +547,9 @@ export function Students({ onViewFollowup }: StudentsProps) {
       </div>
 
       {filteredStudents.length === 0 && (
-        <div className="text-center py-12 bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50">
+        <div className="text-center py-12 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 dark:border-slate-600/50">
           <User className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <p className="text-slate-600">No se encontraron aprendices</p>
+          <p className="text-slate-600 dark:text-slate-400">No se encontraron aprendices</p>
         </div>
       )}
     </div>

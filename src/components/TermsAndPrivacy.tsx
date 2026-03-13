@@ -86,7 +86,7 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
         {/* Header */}
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 hover:text-purple-600 transition-colors mb-8"
+          className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors mb-8"
         >
           <ArrowLeft className="w-5 h-5" />
           Volver al inicio de sesión
@@ -97,23 +97,23 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
             <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
               Términos y Condiciones
             </h1>
-            <p className="text-slate-600 mb-1">
+            <p className="text-slate-600 dark:text-slate-400 mb-1">
               Política de Tratamiento de Datos Personales - SENA
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               Documento GC-F-005 V. 01 | Vigente desde 15/11/2016
             </p>
           </div>
 
           {/* Enlace externo SOFIA Plus */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center shrink-0">
                 <ExternalLink className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg text-slate-800 mb-2">Política de Confidencialidad SOFIA Plus</h3>
-                <p className="text-slate-600 text-sm mb-4">
+                <h3 className="text-lg text-slate-800 dark:text-slate-200 mb-2">Política de Confidencialidad SOFIA Plus</h3>
+                <p className="text-slate-600 dark:text-slate-400 text-sm mb-4">
                   Consulta los términos de uso del servicio, autorización y consentimiento para el tratamiento de datos personales en el portal oficial del SENA.
                 </p>
                 <a
@@ -136,21 +136,21 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
               return (
                 <div
                   key={index}
-                  className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all"
+                  className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm hover:shadow-md transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div className={`w-12 h-12 rounded-xl ${section.bgColor} flex items-center justify-center shrink-0`}>
                       <Icon className={`w-6 h-6 bg-gradient-to-r ${section.color} bg-clip-text`} style={{ WebkitTextFillColor: 'transparent', WebkitBackgroundClip: 'text', backgroundClip: 'text' }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl text-slate-800 font-medium mb-3">{section.title}</h3>
+                      <h3 className="text-xl text-slate-800 dark:text-slate-200 font-medium mb-3">{section.title}</h3>
                       {'content' in section && (
-                        <p className="text-slate-600 leading-relaxed">{section.content}</p>
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{section.content}</p>
                       )}
                       {'items' in section && (
                         <ul className="space-y-2">
                           {(section.items as string[]).map((item, i) => (
-                            <li key={i} className="flex items-start gap-2 text-slate-600 text-sm">
+                            <li key={i} className="flex items-start gap-2 text-slate-600 dark:text-slate-400 text-sm">
                               <span className="text-purple-500 mt-1">•</span>
                               <span>{item}</span>
                             </li>
@@ -166,7 +166,7 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
 
           {/* Canales de atención */}
           <div className="bg-gradient-to-r from-slate-50 to-purple-50/30 rounded-2xl p-8 border border-purple-100/50">
-            <h3 className="text-xl text-slate-800 mb-6 flex items-center gap-2">
+            <h3 className="text-xl text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
               <Phone className="w-6 h-6 text-purple-600" />
               Canales de Atención
             </h3>
@@ -176,15 +176,15 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
                 <p className="text-slate-800 font-medium">018000 910 270</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500 mb-1">Línea Bogotá D.C.</p>
-                <p className="text-slate-800 font-medium">(1) 592 55 55</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Línea Bogotá D.C.</p>
+                <p className="text-slate-800 dark:text-slate-200 font-medium">(1) 592 55 55</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500 mb-1">Dirección</p>
-                <p className="text-slate-800">Calle 57 No. 8-69, Bogotá D.C.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Dirección</p>
+                <p className="text-slate-800 dark:text-slate-200">Calle 57 No. 8-69, Bogotá D.C.</p>
               </div>
               <div>
-                <p className="text-sm text-slate-500 mb-1">Solicitudes en línea</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Solicitudes en línea</p>
                 <a
                   href="http://sciudadanos.sena.edu.co/SolicitudIndex.aspx"
                   target="_blank"
@@ -202,9 +202,9 @@ export function TermsAndPrivacy({ onBack }: TermsAndPrivacyProps) {
           </div>
 
           {/* Responsable del tratamiento */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50">
-            <h3 className="text-lg text-slate-800 mb-4">Responsable del Tratamiento</h3>
-            <p className="text-slate-600 text-sm">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50">
+            <h3 className="text-lg text-slate-800 dark:text-slate-200 mb-4">Responsable del Tratamiento</h3>
+            <p className="text-slate-600 dark:text-slate-400 text-sm">
               Servicio Nacional de Aprendizaje – SENA – Coordinación Nacional de Servicio a la Empresa y Servicio al Cliente. 
               Coordinadora: Margarita Giraldo Correa. Todos los datos están almacenados en servidores del SENA en Colombia, 
               custodiados con mecanismos avanzados de seguridad informática.

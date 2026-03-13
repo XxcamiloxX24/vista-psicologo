@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Brain, Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import logoSena from '../assets/Logo sena.png';
+import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -12,6 +13,8 @@ interface LoginProps {
 }
 
 export function Login({ onLogin, onViewTerms }: LoginProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +45,7 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-4">
       {/* Fondo decorativo suave */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl" />
@@ -52,7 +55,7 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
       <div className="relative w-full max-w-md">
         {/* Card principal */}
         <div
-          className="bg-white backdrop-blur-xl overflow-hidden"
+          className="bg-white dark:bg-slate-800 backdrop-blur-xl overflow-hidden"
           style={{
             borderRadius: '2rem',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(148, 163, 184, 0.15)',
@@ -61,7 +64,7 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
           {/* Header del card */}
           <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-8 py-10 text-center">
             <div className="flex justify-center mb-4">
-              <div className="rounded-2xl bg-white/95 p-4 shadow-lg flex items-center gap-8">
+              <div className="rounded-2xl bg-white/95 dark:bg-slate-800/95 p-4 shadow-lg flex items-center gap-8">
                 <img
                   src={logoSena}
                   alt="Logo SENA"
@@ -85,9 +88,9 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="login-form p-8 space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700">
+              <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">
                 Correo electrónico
               </Label>
               <div className="relative">
@@ -98,13 +101,14 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
                   placeholder="correo@sena.edu.co"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-12 h-12 rounded-xl border-purple-200/50 bg-slate-50/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300"
+                  className="pl-12 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-500"
+                  style={{ color: isDark ? '#e2e8f0' : '#000000' }}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700">
+              <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
                 Contraseña
               </Label>
               <div className="flex gap-2">
@@ -116,13 +120,14 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-12 pr-4 h-12 rounded-xl border-purple-200/50 bg-slate-50/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300"
+                    className="pl-12 pr-4 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-500"
+                    style={{ color: isDark ? '#e2e8f0' : '#000000' }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="shrink-0 w-12 h-12 rounded-xl border border-purple-200/50 bg-slate-50/50 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 transition-colors"
+                  className="shrink-0 w-12 h-12 rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-600/50 transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -183,7 +188,7 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
           </form>
         </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
+        <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-6">
           Política de confidencialidad SOFIA Plus:{' '}
           <a
             href="https://portal.senasofiaplus.edu.co/index.php/seguridad/politica-de-confidencialidad"

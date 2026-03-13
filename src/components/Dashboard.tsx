@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Users, MessageSquare, Activity, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getTotalAprendices } from '../lib/aprendiz';
 import { getCitasHoy } from '../lib/citas';
 import { getTendenciaEstado } from '../lib/seguimiento';
 import type { TendenciaEstadoItem } from '../lib/seguimiento';
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export function Dashboard() {
   const { displayName } = usePsychologist();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+  const chartStroke = isDark ? '#94a3b8' : '#64748b';
+  const gridStroke = isDark ? '#334155' : '#e5e7eb';
   const [totalAprendices, setTotalAprendices] = useState<number | null>(null);
   const [citasHoy, setCitasHoy] = useState<number | null>(null);
   const [tendenciaModo, setTendenciaModo] = useState<'recientes' | 'cuatrimestre' | 'rango'>('recientes');
@@ -180,11 +186,11 @@ export function Dashboard() {
           <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Inicio
           </h1>
-          <p className="text-slate-600">Bienvenido de nuevo, {displayName}</p>
+          <p className="text-slate-600" style={isDark ? { color: '#e2e8f0' } : undefined}>Bienvenido de nuevo, {displayName}</p>
         </div>
         <div className="text-right">
-          <p className="text-sm text-slate-500">Hoy</p>
-          <p className="text-slate-800">Miércoles, 3 de Diciembre 2025</p>
+          <p className="text-sm text-slate-500" style={isDark ? { color: '#cbd5e1' } : undefined}>Hoy</p>
+          <p className="text-slate-800" style={isDark ? { color: 'white' } : undefined}>Miércoles, 3 de Diciembre 2025</p>
         </div>
       </div>
 
@@ -198,15 +204,15 @@ export function Dashboard() {
             return (
               <div
                 key={index}
-                className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+                className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm hover:shadow-md transition-all duration-300"
               >
-                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center mb-4`}>
-                  <Icon className="w-6 h-6 text-green-600" stroke="currentColor" />
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} dark:bg-green-900/30 flex items-center justify-center mb-4`}>
+                  <Icon className="w-6 h-6 text-green-600 dark:text-green-400" stroke="currentColor" />
                 </div>
-                <h3 className="text-3xl mb-1 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                <h3 className="text-3xl mb-1 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent" style={isDark ? { background: 'none', color: 'white', WebkitTextFillColor: 'white' } : undefined}>
                   {stat.value}
                 </h3>
-                <p className="text-slate-600 text-sm">Total de aprendices</p>
+                <p className="text-slate-600 text-sm" style={isDark ? { color: '#e2e8f0' } : undefined}>Total de aprendices</p>
               </div>
             );
           }
@@ -215,14 +221,14 @@ export function Dashboard() {
           return (
             <div
               key={index}
-              className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+              className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm hover:shadow-md transition-all duration-300"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
+                <div className={`w-12 h-12 rounded-xl ${stat.bgColor} dark:bg-slate-700/50 flex items-center justify-center`}>
                   <Icon className={`w-6 h-6 bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`} style={{ WebkitTextFillColor: 'transparent', WebkitBackgroundClip: 'text', backgroundClip: 'text' }} />
                 </div>
                 <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
-                  stat.trend === 'up' ? 'bg-green-50' : 'bg-red-50'
+                  stat.trend === 'up' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-red-50 dark:bg-red-900/30'
                 }`}>
                   <TrendIcon className={`w-4 h-4 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`} />
                   <span className={`text-xs ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
@@ -230,11 +236,11 @@ export function Dashboard() {
                   </span>
                 </div>
               </div>
-              <h3 className="text-3xl mb-1 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+              <h3 className="text-3xl mb-1 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent" style={isDark ? { background: 'none', color: 'white', WebkitTextFillColor: 'white' } : undefined}>
                 {stat.value}
               </h3>
-              <p className="text-slate-600 text-sm mb-2">{stat.label}</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-slate-600 text-sm mb-2" style={isDark ? { color: '#e2e8f0' } : undefined}>{stat.label}</p>
+              <p className="text-xs text-slate-500" style={isDark ? { color: '#cbd5e1' } : undefined}>
                 <span className={stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}>
                   {stat.change}
                 </span> {stat.comparison}
@@ -247,24 +253,25 @@ export function Dashboard() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Appointments Comparison */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
           <div className="mb-6">
-            <h2 className="text-xl text-slate-800 mb-1">Citas Semanales</h2>
-            <p className="text-sm text-slate-500">Comparación con semana anterior</p>
+            <h2 className="text-xl text-slate-800 mb-1" style={isDark ? { color: 'white' } : undefined}>Citas Semanales</h2>
+            <p className="text-sm text-slate-500" style={isDark ? { color: '#e2e8f0' } : undefined}>Comparación con semana anterior</p>
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={appointmentsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="day" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="day" stroke={chartStroke} />
+              <YAxis stroke={chartStroke} />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px'
+                  backgroundColor: isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.95)', 
+                  border: isDark ? '1px solid #475569' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: isDark ? '#f8fafc' : undefined
                 }}
               />
-              <Legend />
+              <Legend wrapperStyle={isDark ? { color: '#e2e8f0' } : undefined} />
               <Bar dataKey="semanaActual" fill="url(#colorGradient)" name="Semana Actual" radius={[8, 8, 0, 0]} />
               <Bar dataKey="semanaAnterior" fill="#cbd5e1" name="Semana Anterior" radius={[8, 8, 0, 0]} />
               <defs>
@@ -278,20 +285,30 @@ export function Dashboard() {
         </div>
 
         {/* Follow-up Trends */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
           <div className="mb-6">
-            <h2 className="text-xl text-slate-800 mb-1">Tendencia de Seguimientos</h2>
+            <h2 className="text-xl text-slate-800 mb-1" style={isDark ? { color: 'white' } : undefined}>Tendencia de Seguimientos</h2>
             <div className="mt-2">
               <div className="flex items-center gap-3 flex-nowrap">
-              <select
-                value={tendenciaModo}
-                onChange={(e) => setTendenciaModo(e.target.value as 'recientes' | 'cuatrimestre' | 'rango')}
-                className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-              >
-                <option value="recientes">Recientes</option>
-                <option value="cuatrimestre">Cuatrimestre</option>
-                <option value="rango">Rango personalizado</option>
-              </select>
+              <Select value={tendenciaModo} onValueChange={(v) => setTendenciaModo(v as 'recientes' | 'cuatrimestre' | 'rango')}>
+                <SelectTrigger
+                  className={`w-40 h-8 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-purple-500/50 ${
+                    isDark ? 'border-slate-600 bg-slate-800 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <SelectValue placeholder="Recientes" />
+                </SelectTrigger>
+                <SelectContent
+                  className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-lg ${
+                    isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                  }`}
+                  style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' }}
+                >
+                  <SelectItem value="recientes" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Recientes</SelectItem>
+                  <SelectItem value="cuatrimestre" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Cuatrimestre</SelectItem>
+                  <SelectItem value="rango" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Rango personalizado</SelectItem>
+                </SelectContent>
+              </Select>
 
               {tendenciaModo === 'cuatrimestre' && (
                 <>
@@ -302,17 +319,29 @@ export function Dashboard() {
                     value={anioCuatrimestre}
                     onChange={(e) => setAnioCuatrimestre(e.target.value)}
                     placeholder="Año"
-                    className="w-24 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    className={`w-24 h-8 px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                      isDark ? 'border-slate-500 !bg-transparent text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                    }`}
                   />
-                  <select
-                    value={cuatrimestre}
-                    onChange={(e) => setCuatrimestre(e.target.value)}
-                    className="w-56 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                  >
-                    <option value="1">Ene - Feb - Mar - Abr</option>
-                    <option value="2">May - Jun - Jul - Ago</option>
-                    <option value="3">Sep - Oct - Nov - Dic</option>
-                  </select>
+                  <Select value={cuatrimestre} onValueChange={setCuatrimestre}>
+                    <SelectTrigger
+                      className={`w-56 h-8 px-3 py-1.5 rounded-lg border text-sm focus:ring-2 focus:ring-purple-500/50 ${
+                        isDark ? 'border-slate-600 bg-slate-800 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent
+                      className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-lg ${
+                        isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                      }`}
+                      style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' }}
+                    >
+                      <SelectItem value="1" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Ene - Feb - Mar - Abr</SelectItem>
+                      <SelectItem value="2" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>May - Jun - Jul - Ago</SelectItem>
+                      <SelectItem value="3" hideIndicator className={isDark ? 'px-3 py-1.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-3 py-1.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Sep - Oct - Nov - Dic</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </>
               )}
 
@@ -330,7 +359,9 @@ export function Dashboard() {
                         setRangoError('');
                       }
                     }}
-                    className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    className={`w-40 h-8 px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                      isDark ? 'border-slate-500 !bg-transparent text-white [color-scheme:dark]' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                    }`}
                   />
                   <input
                     type="date"
@@ -346,7 +377,9 @@ export function Dashboard() {
                         setRangoError('');
                       }
                     }}
-                    className="w-40 px-3 py-1.5 rounded-lg border border-purple-200/50 bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    className={`w-40 h-8 px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                      isDark ? 'border-slate-500 !bg-transparent text-white [color-scheme:dark]' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                    }`}
                   />
                 </>
               )}
@@ -358,17 +391,18 @@ export function Dashboard() {
           </div>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={followupTrendsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="mes" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="mes" stroke={chartStroke} />
+              <YAxis stroke={chartStroke} />
               <Tooltip 
                 contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px'
+                  backgroundColor: isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.95)', 
+                  border: isDark ? '1px solid #475569' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: isDark ? '#f8fafc' : undefined
                 }}
               />
-              <Legend />
+              <Legend wrapperStyle={isDark ? { color: '#e2e8f0' } : undefined} />
               <Area type="monotone" dataKey="estables" stackId="1" stroke="#22c55e" fill="#22c55e" fillOpacity={0.6} name="Estables" />
               <Area type="monotone" dataKey="observacion" stackId="1" stroke="#eab308" fill="#eab308" fillOpacity={0.6} name="En Observación" />
               <Area type="monotone" dataKey="criticos" stackId="1" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} name="Críticos" />
@@ -378,24 +412,25 @@ export function Dashboard() {
       </div>
 
       {/* Monthly Activity Chart */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
         <div className="mb-6">
-          <h2 className="text-xl text-slate-800 mb-1">Actividad Mensual</h2>
-          <p className="text-sm text-slate-500">Comparativa de citas, seguimientos y mensajes</p>
+          <h2 className="text-xl text-slate-800 mb-1" style={isDark ? { color: 'white' } : undefined}>Actividad Mensual</h2>
+          <p className="text-sm text-slate-500" style={isDark ? { color: '#e2e8f0' } : undefined}>Comparativa de citas, seguimientos y mensajes</p>
         </div>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={monthlyData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="mes" stroke="#64748b" />
-            <YAxis stroke="#64748b" />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+            <XAxis dataKey="mes" stroke={chartStroke} />
+            <YAxis stroke={chartStroke} />
             <Tooltip 
               contentStyle={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px'
+                backgroundColor: isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.95)', 
+                border: isDark ? '1px solid #475569' : '1px solid #e5e7eb',
+                borderRadius: '8px',
+                color: isDark ? '#f8fafc' : undefined
               }}
             />
-            <Legend />
+            <Legend wrapperStyle={isDark ? { color: '#e2e8f0' } : undefined} />
             <Line type="monotone" dataKey="citas" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} name="Citas" />
             <Line type="monotone" dataKey="seguimientos" stroke="#8b5cf6" strokeWidth={3} dot={{ fill: '#8b5cf6', r: 5 }} name="Seguimientos" />
             <Line type="monotone" dataKey="mensajes" stroke="#22c55e" strokeWidth={3} dot={{ fill: '#22c55e', r: 5 }} name="Mensajes" />
@@ -405,26 +440,30 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Citas de Hoy */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl text-slate-800">Citas de Hoy</h2>
-            <Calendar className="w-5 h-5 text-purple-600" />
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl text-slate-800" style={isDark ? { color: 'white' } : undefined}>Citas de Hoy</h2>
+            <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3 flex-1 min-h-0">
             {recentAppointments.map((apt, index) => (
               <div
                 key={index}
-                className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-slate-50 to-purple-50/30 border border-purple-100/30 hover:border-purple-200/50 transition-all"
+                className={`flex items-center gap-4 p-4 rounded-xl border transition-all flex-1 min-h-0 ${
+                  isDark
+                    ? 'bg-transparent border-slate-600/50 hover:border-slate-500/50'
+                    : 'bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/30 hover:border-purple-200/50'
+                }`}
               >
                 <div className="text-center min-w-[60px]">
-                  <p className="text-sm text-slate-500">Hora</p>
-                  <p className="text-purple-700">{apt.time}</p>
+                  <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Hora</p>
+                  <p className={isDark ? '' : 'text-purple-700'} style={isDark ? { color: '#94a3b8' } : undefined}>{apt.time}</p>
                 </div>
                 <div className="flex-1">
-                  <p className="text-slate-800">{apt.name}</p>
-                  <p className="text-sm text-slate-500">Ficha: {apt.ficha}</p>
+                  <p className={isDark ? 'text-white' : 'text-slate-800'}>{apt.name}</p>
+                  <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Ficha: {apt.ficha}</p>
                 </div>
-                <div className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs">
+                <div className="px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs">
                   Pendiente
                 </div>
               </div>
@@ -433,37 +472,51 @@ export function Dashboard() {
         </div>
 
         {/* Casos Críticos */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl text-slate-800">Casos Prioritarios</h2>
-            <AlertCircle className="w-5 h-5 text-red-600" />
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl text-slate-800" style={isDark ? { color: 'white' } : undefined}>Casos Prioritarios</h2>
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
-          <div className="space-y-3">
-            {criticalCases.map((case_, index) => (
+          <div className="flex flex-col gap-3 flex-1 min-h-0">
+            {criticalCases.map((case_, index) => {
+              const isCritico = case_.level === 'Crítico';
+              const boxStyle = isDark
+                ? {
+                    background: 'transparent',
+                    borderWidth: 2,
+                    borderLeftWidth: 4,
+                    borderStyle: 'solid',
+                    borderColor: isCritico ? '#ef4444' : '#facc15',
+                  }
+                : undefined;
+              return (
               <div
                 key={index}
-                className={`p-4 rounded-xl border-l-4 ${
-                  case_.level === 'Crítico'
-                    ? 'border-l-red-500 bg-red-50/50'
-                    : 'border-l-yellow-500 bg-yellow-50/50'
+                className={`p-4 rounded-xl flex-1 min-h-0 flex flex-col ${
+                  isCritico
+                    ? isDark ? '' : 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20'
+                    : isDark ? '' : 'border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20'
                 }`}
+                style={boxStyle}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-slate-800">{case_.name}</p>
+                  <p className={isDark ? 'text-white' : 'text-slate-800'}>{case_.name}</p>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      case_.level === 'Crítico'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-yellow-100 text-yellow-700'
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      isCritico
+                        ? isDark ? 'text-white' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                        : isDark ? 'text-slate-900' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300'
                     }`}
+                    style={isDark ? (isCritico ? { backgroundColor: '#dc2626' } : { backgroundColor: '#facc15' }) : undefined}
                   >
                     {case_.level}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500">Ficha: {case_.ficha}</p>
-                <p className="text-xs text-slate-500 mt-1">{case_.lastContact}</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-500'}`}>Ficha: {case_.ficha}</p>
+                <p className={`text-xs mt-1 ${isDark ? 'text-white' : 'text-slate-500'}`}>{case_.lastContact}</p>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>

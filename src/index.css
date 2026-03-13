@@ -2,6 +2,9 @@
 /* @tailwind base; */
 /* @tailwind components; */
 /* @tailwind utilities; */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer properties {
   @supports (((-webkit-hyphens: none)) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color: rgb(from red r g b)))) {
     *, :before, :after, ::backdrop {
@@ -2539,4 +2542,36 @@ html {
   syntax: "*";
   inherits: false;
   initial-value: 1;
+}
+
+/* Hover destacado para selects (modo oscuro) */
+.settings-select-dark [data-slot="select-item"][data-highlighted] {
+  background-color: #64748b !important;
+  transition: background-color 0.15s ease;
+}
+
+/* Hover destacado para selects (modo claro: fondo blanco, texto negro) */
+.select-light-dropdown [data-slot="select-item"] {
+  color: #0f172a !important;
+}
+.select-light-dropdown [data-slot="select-item"][data-highlighted] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  transition: background-color 0.15s ease;
+}
+
+/* Login: texto visible en inputs (modo claro = negro, modo oscuro = claro) */
+.login-form input[type="email"],
+.login-form input[type="password"],
+.login-form input[type="text"] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  caret-color: #000000;
+}
+.dark .login-form input[type="email"],
+.dark .login-form input[type="password"],
+.dark .login-form input[type="text"] {
+  color: #e2e8f0 !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+  caret-color: #e2e8f0;
 }

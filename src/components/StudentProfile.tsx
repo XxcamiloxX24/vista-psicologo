@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Calendar, BarChart3, ClipboardList, Bell, Activity } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Student {
@@ -19,6 +20,8 @@ interface StudentProfileProps {
 type Tab = 'calendar' | 'charts' | 'test' | 'reminders' | 'activities';
 
 export function StudentProfile({ student, onBack }: StudentProfileProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [activeTab, setActiveTab] = useState<Tab>('calendar');
 
   const tabs = [
@@ -79,7 +82,7 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
       {/* Header */}
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-slate-600 hover:text-purple-600 transition-colors"
+        className={`flex items-center gap-2 transition-colors ${isDark ? 'text-white hover:text-purple-400' : 'text-slate-600 hover:text-purple-600'}`}
       >
         <ArrowLeft className="w-5 h-5" />
         Volver a la lista
@@ -88,12 +91,14 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar - Student Info */}
         <div className="lg:col-span-1">
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm sticky top-6">
+          <div className={`backdrop-blur-sm rounded-2xl p-6 border shadow-sm sticky top-6 ${
+            isDark ? 'bg-slate-800/90 border-slate-600' : 'bg-white/90 border-purple-100/50'
+          }`}>
             <div className="text-center mb-6">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl mx-auto mb-4 shadow-lg">
                 {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
-              <h2 className="text-slate-800 mb-1">{student.name}</h2>
+              <h2 className={`mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.name}</h2>
               <span className={`inline-block px-3 py-1 rounded-full text-xs ${
                 student.status === 'stable' ? 'bg-green-100 text-green-700' :
                 student.status === 'observation' ? 'bg-yellow-100 text-yellow-700' :
@@ -107,24 +112,24 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-slate-500 mb-1">Ficha</p>
-                <p className="text-sm text-slate-800">{student.ficha}</p>
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ficha</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.ficha}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Programa</p>
-                <p className="text-sm text-slate-800">{student.program}</p>
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Programa</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.program}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Correo</p>
-                <p className="text-sm text-slate-800 break-all">{student.email}</p>
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Correo</p>
+                <p className={`text-sm break-all ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.email}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Teléfono</p>
-                <p className="text-sm text-slate-800">+57 300 123 4567</p>
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Teléfono</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>+57 300 123 4567</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Facultad</p>
-                <p className="text-sm text-slate-800">Tecnología e Informática</p>
+                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Facultad</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>Tecnología e Informática</p>
               </div>
             </div>
           </div>
@@ -132,9 +137,11 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
         {/* Content Area */}
         <div className="lg:col-span-3">
-          <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-purple-100/50 shadow-sm overflow-hidden">
+          <div className={`backdrop-blur-sm rounded-2xl border shadow-sm overflow-hidden ${
+            isDark ? 'bg-slate-800/90 border-slate-600' : 'bg-white/90 border-purple-100/50'
+          }`}>
             {/* Tabs */}
-            <div className="flex border-b border-purple-100/50 overflow-x-auto">
+            <div className={`flex border-b overflow-x-auto ${isDark ? 'border-slate-600' : 'border-purple-100/50'}`}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -143,8 +150,8 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
                       activeTab === tab.id
-                        ? 'border-purple-600 text-purple-700 bg-purple-50/50'
-                        : 'border-transparent text-slate-600 hover:text-purple-600 hover:bg-purple-50/30'
+                        ? isDark ? 'border-purple-500 text-white bg-purple-900/30' : 'border-purple-600 text-purple-700 bg-purple-50/50'
+                        : isDark ? 'border-transparent text-slate-400 hover:text-white hover:bg-slate-700/50' : 'border-transparent text-slate-600 hover:text-purple-600 hover:bg-purple-50/30'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -158,10 +165,10 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
             <div className="p-6">
               {activeTab === 'calendar' && (
                 <div>
-                  <h3 className="text-lg text-slate-800 mb-4">Registro Emocional</h3>
+                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Registro Emocional</h3>
                   <div className="grid grid-cols-7 gap-3">
                     {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => (
-                      <div key={i} className="text-center text-sm text-slate-500 py-2">
+                      <div key={i} className={`text-center text-sm py-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                         {day}
                       </div>
                     ))}
@@ -173,7 +180,7 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                           className={`aspect-square rounded-lg flex items-center justify-center text-sm ${
                             emotion
                               ? `${getEmotionColor(emotion.emotion)} text-white`
-                              : 'bg-slate-100 text-slate-400'
+                              : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'
                           }`}
                         >
                           {i + 1}
@@ -184,19 +191,19 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                   <div className="mt-6 flex gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-green-500"></div>
-                      <span className="text-sm text-slate-600">Positiva</span>
+                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Positiva</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-yellow-500"></div>
-                      <span className="text-sm text-slate-600">Neutral</span>
+                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Neutral</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-orange-500"></div>
-                      <span className="text-sm text-slate-600">Negativa</span>
+                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Negativa</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-red-500"></div>
-                      <span className="text-sm text-slate-600">Crítica</span>
+                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Crítica</span>
                     </div>
                   </div>
                 </div>
@@ -204,11 +211,11 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
               {activeTab === 'charts' && (
                 <div>
-                  <h3 className="text-lg text-slate-800 mb-4">Estadísticas de Evolución</h3>
+                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Estadísticas de Evolución</h3>
                   <div className="space-y-6">
                     {/* Emotional Evolution Chart */}
-                    <div className="bg-gradient-to-r from-slate-50 to-purple-50/30 rounded-xl p-6">
-                      <p className="text-sm text-slate-600 mb-4">Evolución Emocional (últimos 7 días)</p>
+                    <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-purple-50/30'}`}>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Evolución Emocional (últimos 7 días)</p>
                       <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={emotionalEvolutionData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -240,8 +247,8 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                     </div>
 
                     {/* Session Attendance Chart */}
-                    <div className="bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl p-6">
-                      <p className="text-sm text-slate-600 mb-4">Asistencia a Sesiones</p>
+                    <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-blue-50/30'}`}>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Asistencia a Sesiones</p>
                       <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={sessionAttendanceData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -263,8 +270,8 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
                     {/* Emotional Distribution */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-gradient-to-r from-slate-50 to-green-50/30 rounded-xl p-6">
-                        <p className="text-sm text-slate-600 mb-4">Distribución Emocional (30 días)</p>
+                      <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-green-50/30'}`}>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Distribución Emocional (30 días)</p>
                         <ResponsiveContainer width="100%" height={200}>
                           <PieChart>
                             <Pie
@@ -287,20 +294,20 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                       </div>
 
                       <div className="space-y-3">
-                        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                          <p className="text-sm text-slate-600 mb-1">Días Positivos</p>
-                          <p className="text-2xl text-green-700">18</p>
-                          <p className="text-xs text-slate-500 mt-1">60% del mes</p>
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-green-900/30 border-green-700/50' : 'bg-green-50 border-green-200'}`}>
+                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Positivos</p>
+                          <p className={`text-2xl ${isDark ? 'text-green-300' : 'text-green-700'}`}>18</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>60% del mes</p>
                         </div>
-                        <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                          <p className="text-sm text-slate-600 mb-1">Días Neutrales</p>
-                          <p className="text-2xl text-yellow-700">9</p>
-                          <p className="text-xs text-slate-500 mt-1">30% del mes</p>
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-yellow-900/30 border-yellow-700/50' : 'bg-yellow-50 border-yellow-200'}`}>
+                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Neutrales</p>
+                          <p className={`text-2xl ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>9</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>30% del mes</p>
                         </div>
-                        <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-                          <p className="text-sm text-slate-600 mb-1">Días Negativos</p>
-                          <p className="text-2xl text-red-700">3</p>
-                          <p className="text-xs text-slate-500 mt-1">10% del mes</p>
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-red-900/30 border-red-700/50' : 'bg-red-50 border-red-200'}`}>
+                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Negativos</p>
+                          <p className={`text-2xl ${isDark ? 'text-red-300' : 'text-red-700'}`}>3</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>10% del mes</p>
                         </div>
                       </div>
                     </div>
@@ -310,36 +317,36 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
               {activeTab === 'test' && (
                 <div>
-                  <h3 className="text-lg text-slate-800 mb-4">Test de Salud Mental</h3>
-                  <div className="bg-gradient-to-r from-slate-50 to-purple-50/30 rounded-xl p-6 mb-6">
+                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Test de Salud Mental</h3>
+                  <div className={`rounded-xl p-6 mb-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-purple-50/30'}`}>
                     <div className="text-center mb-4">
-                      <p className="text-sm text-slate-600 mb-2">Resultado General</p>
+                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Resultado General</p>
                       <div className="text-5xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
                         7.5/10
                       </div>
-                      <span className="px-4 py-2 rounded-full bg-green-100 text-green-700 text-sm">
+                      <span className={`px-4 py-2 rounded-full text-sm ${isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700'}`}>
                         Salud Mental Estable
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 text-center">
+                    <p className={`text-sm text-center ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                       Última evaluación: 28 de Noviembre 2025
                     </p>
                   </div>
                   <div className="space-y-3">
-                    <div className="p-4 bg-white rounded-xl border border-purple-100/50">
-                      <p className="text-sm text-slate-800 mb-2">Estado Emocional</p>
+                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
+                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Estado Emocional</p>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full" style={{ width: '80%' }}></div>
                       </div>
                     </div>
-                    <div className="p-4 bg-white rounded-xl border border-purple-100/50">
-                      <p className="text-sm text-slate-800 mb-2">Nivel de Estrés</p>
+                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
+                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Nivel de Estrés</p>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full" style={{ width: '45%' }}></div>
                       </div>
                     </div>
-                    <div className="p-4 bg-white rounded-xl border border-purple-100/50">
-                      <p className="text-sm text-slate-800 mb-2">Autoestima</p>
+                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
+                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Autoestima</p>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={{ width: '75%' }}></div>
                       </div>
@@ -350,19 +357,19 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
               {activeTab === 'reminders' && (
                 <div>
-                  <h3 className="text-lg text-slate-800 mb-4">Recordatorios y Retroalimentación</h3>
+                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Recordatorios y Retroalimentación</h3>
                   <div className="space-y-3">
-                    <div className="bg-blue-50 rounded-xl p-4 border-l-4 border-blue-500">
-                      <p className="text-sm text-slate-600 mb-1">28 Nov 2025</p>
-                      <p className="text-slate-800">Continuar con técnicas de respiración aprendidas en sesión anterior.</p>
+                    <div className={`rounded-xl p-4 border-l-4 border-blue-500 ${isDark ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
+                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>28 Nov 2025</p>
+                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Continuar con técnicas de respiración aprendidas en sesión anterior.</p>
                     </div>
-                    <div className="bg-green-50 rounded-xl p-4 border-l-4 border-green-500">
-                      <p className="text-sm text-slate-600 mb-1">25 Nov 2025</p>
-                      <p className="text-slate-800">Excelente progreso en manejo de ansiedad. Mantener rutina de ejercicio.</p>
+                    <div className={`rounded-xl p-4 border-l-4 border-green-500 ${isDark ? 'bg-green-900/30' : 'bg-green-50'}`}>
+                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>25 Nov 2025</p>
+                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Excelente progreso en manejo de ansiedad. Mantener rutina de ejercicio.</p>
                     </div>
-                    <div className="bg-purple-50 rounded-xl p-4 border-l-4 border-purple-500">
-                      <p className="text-sm text-slate-600 mb-1">20 Nov 2025</p>
-                      <p className="text-slate-800">Practicar mindfulness 10 minutos diarios antes de dormir.</p>
+                    <div className={`rounded-xl p-4 border-l-4 border-purple-500 ${isDark ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
+                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>20 Nov 2025</p>
+                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Practicar mindfulness 10 minutos diarios antes de dormir.</p>
                     </div>
                   </div>
                 </div>
@@ -370,43 +377,43 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
               {activeTab === 'activities' && (
                 <div>
-                  <h3 className="text-lg text-slate-800 mb-4">Actividades Asignadas</h3>
+                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Actividades Asignadas</h3>
                   <div className="space-y-3">
-                    <div className="bg-white rounded-xl p-4 border border-purple-100/50 hover:border-purple-200 transition-all">
+                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-slate-800">Diario de Emociones</h4>
-                        <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">
+                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Diario de Emociones</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700'}`}>
                           Completada
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">
+                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         Registrar emociones diarias durante 7 días
                       </p>
-                      <p className="text-xs text-slate-500">Vencimiento: 5 Dic 2025</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 5 Dic 2025</p>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-purple-100/50 hover:border-purple-200 transition-all">
+                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-slate-800">Ejercicios de Respiración</h4>
-                        <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 text-xs">
+                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Ejercicios de Respiración</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>
                           En Progreso
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">
+                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         Practicar técnica 4-7-8 dos veces al día
                       </p>
-                      <p className="text-xs text-slate-500">Vencimiento: 10 Dic 2025</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 10 Dic 2025</p>
                     </div>
-                    <div className="bg-white rounded-xl p-4 border border-purple-100/50 hover:border-purple-200 transition-all">
+                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
                       <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-slate-800">Lectura Recomendada</h4>
-                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700 text-xs">
+                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Lectura Recomendada</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
                           Pendiente
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 mb-2">
+                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         Leer capítulo 3 de "Inteligencia Emocional"
                       </p>
-                      <p className="text-xs text-slate-500">Vencimiento: 15 Dic 2025</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 15 Dic 2025</p>
                     </div>
                   </div>
                 </div>

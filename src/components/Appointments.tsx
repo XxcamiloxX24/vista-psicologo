@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Clock, User, Plus, Check, X, RotateCcw, ChevronLeft, ChevronRight, Edit, FileText } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import { AppointmentModal } from './AppointmentModal.tsx';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 type AppointmentStatus = 'completed' | 'rescheduled' | 'cancelled' | 'pending';
 
@@ -23,12 +25,15 @@ interface Appointment {
 }
 
 export function Appointments() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [editedStatus, setEditedStatus] = useState<AppointmentStatus>('pending');
+  const [modalContainer, setModalContainer] = useState<HTMLDivElement | null>(null);
 
   const [appointments, setAppointments] = useState<Appointment[]>([
     {
@@ -170,10 +175,10 @@ export function Appointments() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className={`text-4xl mb-2 ${isDark ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'}`}>
             Citas
           </h1>
-          <p className="text-slate-600">Gestión de citas y agendamientos</p>
+          <p className={isDark ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}>Gestión de citas y agendamientos</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -186,9 +191,9 @@ export function Appointments() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-slate-800">Calendario</h2>
+            <h2 className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>Calendario</h2>
             <Calendar className="w-5 h-5 text-purple-600" />
           </div>
           
@@ -196,18 +201,18 @@ export function Appointments() {
           <div className="flex items-center justify-between mb-2">
             <button
               onClick={() => changeYear(-1)}
-              className="p-1 hover:bg-slate-100 rounded-lg transition-all"
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
             >
-              <ChevronLeft className="w-4 h-4 text-slate-600" />
+              <ChevronLeft className={`w-4 h-4 ${isDark ? 'text-white' : 'text-slate-600'}`} />
             </button>
-            <p className="text-sm text-slate-700">
+            <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-700'}`}>
               {selectedDate.getFullYear()}
             </p>
             <button
               onClick={() => changeYear(1)}
-              className="p-1 hover:bg-slate-100 rounded-lg transition-all"
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
             >
-              <ChevronRight className="w-4 h-4 text-slate-600" />
+              <ChevronRight className={`w-4 h-4 ${isDark ? 'text-white' : 'text-slate-600'}`} />
             </button>
           </div>
 
@@ -215,24 +220,24 @@ export function Appointments() {
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => changeMonth(-1)}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-all"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
             >
-              <ChevronLeft className="w-5 h-5 text-slate-600" />
+              <ChevronLeft className={`w-5 h-5 ${isDark ? 'text-white' : 'text-slate-600'}`} />
             </button>
-            <p className="text-sm text-slate-600 capitalize">
+            <p className={`text-sm capitalize ${isDark ? 'text-white' : 'text-slate-600'}`}>
               {selectedDate.toLocaleDateString('es-ES', { month: 'long' })}
             </p>
             <button
               onClick={() => changeMonth(1)}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-all"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
             >
-              <ChevronRight className="w-5 h-5 text-slate-600" />
+              <ChevronRight className={`w-5 h-5 ${isDark ? 'text-white' : 'text-slate-600'}`} />
             </button>
           </div>
 
           <div className="grid grid-cols-7 gap-2">
             {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => (
-              <div key={i} className="text-center text-xs text-slate-500 py-2">
+              <div key={i} className={`text-center text-xs py-2 ${isDark ? 'text-white' : 'text-slate-500'}`}>
                 {day}
               </div>
             ))}
@@ -256,8 +261,10 @@ export function Appointments() {
                     isSelected
                       ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
                       : isToday
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'hover:bg-slate-100 text-slate-700'
+                      ? isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'
+                      : isDark
+                      ? 'hover:bg-slate-700 text-slate-300'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
                   }`}
                 >
                   {day.getDate()}
@@ -271,23 +278,27 @@ export function Appointments() {
         </div>
 
         {/* Appointments List */}
-        <div className="lg:col-span-2 bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 shadow-sm">
+        <div className="lg:col-span-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
           <div className="mb-6">
-            <h2 className="text-xl text-slate-800 mb-2">Citas del día</h2>
-            <p className="text-sm text-slate-500 capitalize">{formatDate(selectedDate)}</p>
+            <h2 className={`text-xl mb-2 ${isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>Citas del día</h2>
+            <p className={`text-sm capitalize ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>{formatDate(selectedDate)}</p>
           </div>
 
           {filteredAppointments.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600">No hay citas programadas para este día</p>
+              <p className={isDark ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}>No hay citas programadas para este día</p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredAppointments.map((apt) => (
                 <div
                   key={apt.id}
-                  className="bg-gradient-to-r from-slate-50 to-purple-50/30 rounded-xl p-5 border border-purple-100/50 hover:border-purple-200/50 transition-all cursor-pointer"
+                  className={`rounded-xl p-5 border transition-all cursor-pointer ${
+                    isDark
+                      ? 'bg-transparent border-slate-600/50 hover:border-slate-500/50'
+                      : 'bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/50 hover:border-purple-200/50'
+                  }`}
                   onClick={() => handleOpenDetail(apt)}
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -296,25 +307,25 @@ export function Appointments() {
                         <Clock className="w-6 h-6" />
                       </div>
                       <div>
-                        <h3 className="text-slate-800 mb-1">{apt.studentName}</h3>
-                        <p className="text-sm text-slate-500">Ficha: {apt.ficha}</p>
+                        <h3 className={`mb-1 ${isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{apt.studentName}</h3>
+                        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Ficha: {apt.ficha}</p>
                       </div>
                     </div>
                     {getStatusBadge(apt.status)}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-purple-100/50">
+                  <div className={`grid grid-cols-3 gap-4 mt-4 pt-4 border-t ${isDark ? 'border-slate-600/50' : 'border-purple-100/50'}`}>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Hora</p>
-                      <p className="text-sm text-slate-800">{apt.time}</p>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Hora</p>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{apt.time}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Profesional</p>
-                      <p className="text-sm text-slate-800">{apt.psychologist}</p>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Profesional</p>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{apt.psychologist}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">Duración</p>
-                      <p className="text-sm text-slate-800">{apt.duration} min</p>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Duración</p>
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{apt.duration} min</p>
                     </div>
                   </div>
                 </div>
@@ -330,13 +341,15 @@ export function Appointments() {
           className="fixed inset-0 flex items-center justify-center p-4"
           style={{
             zIndex: 2147483647,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(8px)',
           }}
-          onClick={(e) => e.target === e.currentTarget && setShowDetailModal(false)}
         >
           <div
-            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            ref={(el) => setModalContainer(el)}
+            className={`relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${
+              isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
@@ -353,20 +366,20 @@ export function Appointments() {
             <div className="p-6">
             <div className="space-y-6">
               {/* Patient Info */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+              <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-gradient-to-r from-blue-50 to-purple-50'}`}>
                 <div>
-                  <h3 className="text-xl text-slate-800 mb-1">{selectedAppointment.studentName}</h3>
-                  <p className="text-sm text-slate-600">Ficha: {selectedAppointment.ficha}</p>
-                  <p className="text-sm text-slate-600">{selectedAppointment.studentEmail}</p>
+                  <h3 className={`text-xl mb-1 ${isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{selectedAppointment.studentName}</h3>
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}`}>Ficha: {selectedAppointment.ficha}</p>
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}`}>{selectedAppointment.studentEmail}</p>
                 </div>
               </div>
 
               {/* Appointment Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-500 mb-1">Fecha</p>
-                    <p className="text-slate-800">
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Fecha</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>
                       {new Date(selectedAppointment.date).toLocaleDateString('es-ES', { 
                         weekday: 'long', 
                         year: 'numeric', 
@@ -376,49 +389,57 @@ export function Appointments() {
                     </p>
                   </div>
                   
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-500 mb-1">Hora</p>
-                    <p className="text-slate-800">{selectedAppointment.time}</p>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Hora</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{selectedAppointment.time}</p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-500 mb-1">Duración</p>
-                    <p className="text-slate-800">{selectedAppointment.duration} minutos</p>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Duración</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{selectedAppointment.duration} minutos</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-500 mb-1">Profesional</p>
-                    <p className="text-slate-800">{selectedAppointment.psychologist}</p>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Profesional</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{selectedAppointment.psychologist}</p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <p className="text-xs text-slate-500 mb-1">Motivo</p>
-                    <p className="text-slate-800">{selectedAppointment.reason}</p>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>Motivo</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800 dark:text-slate-200'}>{selectedAppointment.reason}</p>
                   </div>
 
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <Label htmlFor="status">Estado de la Cita</Label>
-                    <select
-                      id="status"
-                      value={editedStatus}
-                      onChange={(e) => setEditedStatus(e.target.value as AppointmentStatus)}
-                      className="mt-2 w-full px-4 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                    >
-                      <option value="pending">Pendiente</option>
-                      <option value="completed">Completada</option>
-                      <option value="rescheduled">Reprogramada</option>
-                      <option value="cancelled">Cancelada</option>
-                    </select>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                    <Label htmlFor="status" className={isDark ? 'text-slate-400' : ''}>Estado de la Cita</Label>
+                    <Select value={editedStatus} onValueChange={(v) => setEditedStatus(v as AppointmentStatus)}>
+                      <SelectTrigger
+                        id="status"
+                        className={`mt-2 h-10 ${isDark ? 'border-slate-600 bg-slate-700 text-white' : ''}`}
+                      >
+                        <SelectValue placeholder="Seleccione estado" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className={`!z-[2147483648] !w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                          isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                        }`}
+                        style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 }}
+                      >
+                        <SelectItem value="pending" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Pendiente</SelectItem>
+                        <SelectItem value="completed" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Completada</SelectItem>
+                        <SelectItem value="rescheduled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Reprogramada</SelectItem>
+                        <SelectItem value="cancelled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Cancelada</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
 
               {/* Notes/Bitacora */}
               <div className="space-y-2">
-                <Label htmlFor="notes" className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-purple-600" />
+                <Label htmlFor="notes" className={`flex items-center gap-2 ${isDark ? 'text-slate-400' : ''}`}>
+                  <FileText className={`w-4 h-4 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
                   Bitácora de la Sesión
                 </Label>
                 <Textarea
@@ -427,19 +448,24 @@ export function Appointments() {
                   onChange={(e) => setEditedNotes(e.target.value)}
                   placeholder="Escriba las observaciones, notas y detalles de la sesión..."
                   rows={8}
-                  className="resize-none"
+                  className={`resize-none ${
+                    isDark ? '!bg-slate-800 border-slate-600 text-white placeholder:text-slate-400' : ''
+                  }`}
+                  style={isDark ? { color: 'white' } : undefined}
                 />
-                <p className="text-xs text-slate-500">
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   Registre aquí los puntos importantes discutidos, el progreso del aprendiz, recomendaciones y próximos pasos.
                 </p>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t">
+              <div className={`flex gap-3 pt-4 border-t ${isDark ? 'border-slate-600' : ''}`}>
                 <Button
                   variant="outline"
                   onClick={() => setShowDetailModal(false)}
-                  className="flex-1 rounded-2xl"
+                  className={`flex-1 rounded-2xl ${
+                    isDark ? 'border-slate-600 text-slate-300 hover:bg-slate-700/50' : ''
+                  }`}
                 >
                   Cancelar
                 </Button>
