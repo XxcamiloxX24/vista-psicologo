@@ -269,7 +269,7 @@ export function Followups() {
               onClick={() => setViewMode('cards')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'cards'
-                  ? 'bg-purple-600 text-white'
+                  ? 'bg-purple-900 text-dark'
                   : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
               }`}
             >
@@ -281,7 +281,7 @@ export function Followups() {
               onClick={() => setViewMode('table')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'table'
-                  ? 'bg-purple-600 text-white'
+                  ? 'bg-purple-600 text-dark'
                   : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
               }`}
             >

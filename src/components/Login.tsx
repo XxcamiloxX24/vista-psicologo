@@ -98,11 +98,11 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="correo@sena.edu.co"
+                  placeholder="ejemplo@correo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-12 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-500"
-                  style={{ color: isDark ? '#e2e8f0' : '#000000' }}
+                  className="pl-12 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-200/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-800"
+                  style={{ color: 'black' }}
                 />
               </div>
             </div>
@@ -121,7 +121,7 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-12 pr-4 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-500"
-                    style={{ color: isDark ? '#e2e8f0' : '#000000' }}
+                    style={{ color: '#000000' }}
                   />
                 </div>
                 <button
