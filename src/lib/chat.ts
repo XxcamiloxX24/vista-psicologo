@@ -81,7 +81,7 @@ export function getSocketConfig() {
     url: CHAT_API_URL,
     options: {
       auth: { token: token ?? '' },
-      extraHeaders: token ? { token } : {},
+      extraHeaders: token ? { token } : undefined,
     },
   };
 }
