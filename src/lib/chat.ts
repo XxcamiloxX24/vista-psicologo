@@ -1,6 +1,7 @@
 import { getAuthHeaders, getToken } from './auth';
 
-const CHAT_API_URL = import.meta.env.VITE_CHAT_API_URL ?? 'http://localhost:3000';
+// Normalizar: quitar barra final para evitar doble "//" en las URLs
+const CHAT_API_URL = (import.meta.env.VITE_CHAT_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
 export interface Conversation {
   _id: string;
