@@ -142,8 +142,8 @@ export default function App() {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 ml-64 p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className={`flex-1 ml-64 ${activeSection === 'messages' ? 'p-4 flex flex-col h-screen overflow-hidden min-h-0' : 'p-8'}`}>
+          <div className={activeSection === 'messages' ? 'flex-1 min-h-0 flex flex-col' : 'max-w-7xl mx-auto'}>
             {renderSection()}
           </div>
         </main>
