@@ -56,7 +56,7 @@ export function FollowupsTable({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const columns: ColumnDef<SeguimientoListarResult, unknown>[] = [
+  const columns: ColumnDef<SeguimientoListarResult, string>[] = [
     columnHelper.accessor((r) => formatName(r), { id: 'nombre', header: 'Nombre' }),
     columnHelper.accessor((r) => String(r.aprendiz?.ficha?.ficCodigo ?? '—'), { id: 'ficha', header: 'Ficha' }),
     columnHelper.accessor((r) => r.aprendiz?.aprendiz?.contacto?.correoInstitucional ?? '—', { id: 'email', header: 'Correo' }),

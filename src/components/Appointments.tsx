@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, User, Plus, Check, X, RotateCcw, ChevronLeft, ChevronRight, Edit, FileText } from 'lucide-react';
+import { Calendar, Clock, Plus, Check, X, RotateCcw, ChevronLeft, ChevronRight, Edit, FileText } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { AppointmentModal } from './AppointmentModal.tsx';
 import { Button } from './ui/button';
@@ -33,7 +33,6 @@ export function Appointments() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [editedStatus, setEditedStatus] = useState<AppointmentStatus>('pending');
-  const [modalContainer, setModalContainer] = useState<HTMLDivElement | null>(null);
 
   const [appointments, setAppointments] = useState<Appointment[]>([
     {
@@ -346,7 +345,6 @@ export function Appointments() {
           }}
         >
           <div
-            ref={(el) => setModalContainer(el)}
             className={`relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${
               isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white'
             }`}

@@ -46,10 +46,21 @@ function seguimientoToStudent(r: SeguimientoListarResult): Student {
   };
 }
 
-export function Followups() {
+interface FollowupsProps {
+  targetStudentId?: string | null;
+}
+
+export function Followups({ targetStudentId }: FollowupsProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (targetStudentId) {
+      const id = parseInt(targetStudentId, 10);
+      if (!Number.isNaN(id)) queueMicrotask(() => setSelectedStudent(id));
+    }
+  }, [targetStudentId]);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'name' | 'email' | 'id' | 'program' | 'ficha'>('all');

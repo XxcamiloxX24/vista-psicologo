@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Brain, Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import logoSena from '../assets/Logo sena.png';
-import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -13,8 +12,6 @@ interface LoginProps {
 }
 
 export function Login({ onLogin, onViewTerms }: LoginProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
