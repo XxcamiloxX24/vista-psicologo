@@ -1,4 +1,4 @@
-const BASE_URL = 'http://healthymind10.runasp.net';
+import { API_BASE_URL } from './config';
 const TOKEN_KEY = 'healthymind_token';
 const PSICOLOGO_ID_KEY = 'healthymind_psicologo_id';
 
@@ -16,7 +16,7 @@ export interface LoginResponse {
 }
 
 export async function login(credentials: LoginCredentials): Promise<string> {
-  const response = await fetch(`${BASE_URL}/api/Autenticacion/ValidarPsicologo`, {
+  const response = await fetch(`${API_BASE_URL}/api/Autenticacion/ValidarPsicologo`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

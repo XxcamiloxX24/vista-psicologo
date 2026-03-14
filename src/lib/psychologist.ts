@@ -1,6 +1,6 @@
 import { getAuthHeaders, getToken, getPsychologistId as getStoredPsychologistId } from './auth';
 
-const BASE_URL = 'http://healthymind10.runasp.net';
+import { API_BASE_URL } from './config';
 
 export interface Psychologist {
   psiCodigo: number;
@@ -59,7 +59,7 @@ export async function getPsychologist(id?: number): Promise<Psychologist | null>
   let psychologistId = id ?? getPsychologistIdFromToken() ?? getStoredPsychologistId();
 
   if (psychologistId == null) {
-    const meResponse = await fetch(`${BASE_URL}/api/Psicologo/me`, {
+    const meResponse = await fetch(`${API_BASE_URL}/api/Psicologo/me`, {
       headers: getAuthHeaders(),
     });
     if (meResponse.ok) {
@@ -70,7 +70,7 @@ export async function getPsychologist(id?: number): Promise<Psychologist | null>
     return null;
   }
 
-  const response = await fetch(`${BASE_URL}/api/Psicologo/${psychologistId}`, {
+  const response = await fetch(`${API_BASE_URL}/api/Psicologo/${psychologistId}`, {
     headers: getAuthHeaders(),
   });
 
@@ -104,7 +104,7 @@ export async function updatePsychologist(
   data: PsychologistUpdate
 ): Promise<Psychologist | null> {
   const response = await fetchWithTimeout(
-    `${BASE_URL}/api/Psicologo/editar/${id}`,
+    `${API_BASE_URL}/api/Psicologo/editar/${id}`,
     {
       method: 'PUT',
       headers: getAuthHeaders(),

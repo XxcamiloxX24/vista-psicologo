@@ -1,13 +1,13 @@
 import { getAuthHeaders } from './auth';
 
-const BASE_URL = 'http://healthymind10.runasp.net';
+import { API_BASE_URL } from './config';
 
 export interface TotalAprendicesResponse {
   totalAprendices: number;
 }
 
 export async function getTotalAprendices(): Promise<number> {
-  const response = await fetch(`${BASE_URL}/api/Aprendiz/estadistica/total-registrados`, {
+  const response = await fetch(`${API_BASE_URL}/api/Aprendiz/estadistica/total-registrados`, {
     headers: getAuthHeaders(),
   });
 

@@ -1,6 +1,6 @@
 import { getAuthHeaders } from './auth';
 
-const BASE_URL = 'http://healthymind10.runasp.net';
+import { API_BASE_URL } from './config';
 
 export interface CitaPorDia {
   año: number;
@@ -10,7 +10,7 @@ export interface CitaPorDia {
 }
 
 export async function getCitasHoy(): Promise<number> {
-  const response = await fetch(`${BASE_URL}/api/Citas/estadistica/por-dia`, {
+  const response = await fetch(`${API_BASE_URL}/api/Citas/estadistica/por-dia`, {
     headers: getAuthHeaders(),
   });
 

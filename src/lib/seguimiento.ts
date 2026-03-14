@@ -1,7 +1,7 @@
 import { getAuthHeaders, getPsychologistId } from './auth';
 import { getPsychologistIdFromToken } from './psychologist';
 
-const BASE_URL = 'http://healthymind10.runasp.net';
+import { API_BASE_URL } from './config';
 
 /* --- API SeguimientoAprendiz/mis-seguimientos --- */
 export interface SeguimientoListarResult {
@@ -31,7 +31,7 @@ export interface SeguimientoListarResponse {
 }
 
 export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise<SeguimientoListarResponse> {
-  const url = new URL(`${BASE_URL}/api/SeguimientoAprendiz/mis-seguimientos`);
+  const url = new URL(`${API_BASE_URL}/api/SeguimientoAprendiz/mis-seguimientos`);
   url.searchParams.set('Pagina', String(pagina));
   url.searchParams.set('TamanoPagina', String(tamanoPagina));
   const response = await fetch(url.toString(), { headers: getAuthHeaders() });
@@ -82,7 +82,7 @@ export async function getTendenciaEstado(params: TendenciaEstadoParams): Promise
   const psicologoId = params.psicologoId ?? getPsychologistIdFromToken() ?? getPsychologistId();
   if (!psicologoId) return [];
 
-  const url = new URL(`${BASE_URL}/api/SeguimientoAprendiz/estadistica/tendencia-estado`);
+  const url = new URL(`${API_BASE_URL}/api/SeguimientoAprendiz/estadistica/tendencia-estado`);
   url.searchParams.set('psicologoId', String(psicologoId));
 
   if (params.modo === 'cuatrimestre') {
