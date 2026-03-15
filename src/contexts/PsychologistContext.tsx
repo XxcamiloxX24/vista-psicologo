@@ -14,6 +14,7 @@ import {
   getDisplayName,
   getInitials,
 } from '../lib/psychologist';
+import { getProfileImage } from '../lib/images';
 
 interface PsychologistContextType {
   psychologist: Psychologist | null;
@@ -23,6 +24,8 @@ interface PsychologistContextType {
   updateProfile: (data: PsychologistUpdate) => Promise<void>;
   displayName: string;
   initials: string;
+  profileImageUrl: string | null;
+  profileImageId: string | null;
 }
 
 const PsychologistContext = createContext<PsychologistContextType | null>(null);
@@ -31,6 +34,8 @@ export function PsychologistProvider({ children }: { children: ReactNode }) {
   const [psychologist, setPsychologist] = useState<Psychologist | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [profileImageId, setProfileImageId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -38,6 +43,15 @@ export function PsychologistProvider({ children }: { children: ReactNode }) {
     try {
       const data = await getPsychologist();
       setPsychologist(data);
+      getProfileImage()
+        .then(({ url, id }) => {
+          setProfileImageUrl(url);
+          setProfileImageId(id);
+        })
+        .catch(() => {
+          setProfileImageUrl(null);
+          setProfileImageId(null);
+        });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar el perfil');
     } finally {
@@ -66,6 +80,8 @@ export function PsychologistProvider({ children }: { children: ReactNode }) {
     updateProfile,
     displayName: getDisplayName(psychologist),
     initials: getInitials(psychologist),
+    profileImageUrl,
+    profileImageId,
   };
 
   return (

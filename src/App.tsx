@@ -8,6 +8,7 @@ import { Followups } from "./components/Followups";
 import { Students } from "./components/Students";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
+import { ProfileEditPage } from "./components/ProfileEditPage";
 import { Sidebar } from "./components/Sidebar";
 import { Login } from "./components/Login";
 import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
@@ -22,7 +23,8 @@ type Section =
   | "followups"
   | "students"
   | "about"
-  | "settings";
+  | "settings"
+  | "profile-edit";
 
 type AuthView = "login" | "terms" | "app";
 
@@ -38,6 +40,7 @@ export default function App() {
   const [targetStudentId, setTargetStudentId] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutProgress, setLogoutProgress] = useState(0);
+  const [profileSavedToast, setProfileSavedToast] = useState(false);
 
   useEffect(() => {
     if (!isLoggingOut) return;
@@ -102,7 +105,22 @@ export default function App() {
       case "about":
         return <About />;
       case "settings":
-        return <Settings />;
+        return (
+          <Settings
+            onEditProfile={() => setActiveSection("profile-edit")}
+            showSavedToast={profileSavedToast}
+            onDismissSavedToast={() => setProfileSavedToast(false)}
+          />
+        );
+      case "profile-edit":
+        return (
+          <ProfileEditPage
+            onBack={(showSaved) => {
+              setActiveSection("settings");
+              if (showSaved) setProfileSavedToast(true);
+            }}
+          />
+        );
       default:
         return <Dashboard />;
     }

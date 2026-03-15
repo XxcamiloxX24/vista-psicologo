@@ -1,35 +1,44 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X } from 'lucide-react';
+import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { ProfileEditModal } from './ProfileEditModal';
+import { changePassword } from '../lib/auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-export function Settings() {
+interface SettingsProps {
+  onEditProfile?: () => void;
+  showSavedToast?: boolean;
+  onDismissSavedToast?: () => void;
+}
+
+export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }: SettingsProps) {
   const [openSection, setOpenSection] = useState<string | null>('profile');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [showSavedNotification, setShowSavedNotification] = useState(false);
-  const [showErrorNotification, setShowErrorNotification] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
   const { psychologist, loading } = usePsychologist();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const settingsContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (showSavedNotification) {
-      const t = setTimeout(() => setShowSavedNotification(false), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [showSavedNotification]);
+  const [passwordActual, setPasswordActual] = useState('');
+  const [passwordNueva, setPasswordNueva] = useState('');
+  const [passwordConfirmar, setPasswordConfirmar] = useState('');
+  const [showPasswordActual, setShowPasswordActual] = useState(false);
+  const [showPasswordNueva, setShowPasswordNueva] = useState(false);
+  const [showPasswordConfirmar, setShowPasswordConfirmar] = useState(false);
+  const [securityToast, setSecurityToast] = useState<{ type: 'warning' | 'success' | 'error'; message: string } | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
 
   useEffect(() => {
-    if (showErrorNotification) {
-      const t = setTimeout(() => setShowErrorNotification(false), 5000);
-      return () => clearTimeout(t);
-    }
-  }, [showErrorNotification]);
+    if (!showSavedToast || !onDismissSavedToast) return;
+    const t = setTimeout(() => onDismissSavedToast(), 3500);
+    return () => clearTimeout(t);
+  }, [showSavedToast, onDismissSavedToast]);
+
+  useEffect(() => {
+    if (!securityToast) return;
+    const t = setTimeout(() => setSecurityToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [securityToast]);
 
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
@@ -74,45 +83,89 @@ export function Settings() {
     }
   ];
 
-  const notificationToast = (showSavedNotification || showErrorNotification) && createPortal(
-    <div
-      role={showSavedNotification ? 'status' : 'alert'}
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        left: window.innerWidth >= 768 ? 288 : 24,
-        zIndex: 2147483647,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 16px',
-        borderRadius: 12,
-        backgroundColor: showSavedNotification ? '#10b981' : '#ef4444',
-        color: 'white',
-        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
-      }}
-    >
-      {showSavedNotification && <Check style={{ width: 20, height: 20, flexShrink: 0 }} />}
-      <span style={{ fontWeight: 500 }}>
-        {showSavedNotification ? 'Guardado' : errorMessage}
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          setShowSavedNotification(false);
-          setShowErrorNotification(false);
+  const toastLeft = typeof window !== 'undefined' && window.innerWidth >= 768 ? 288 : 24;
+  const savedToast =
+    showSavedToast &&
+    createPortal(
+      <div
+        role="status"
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          left: toastLeft,
+          zIndex: 2147483647,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 16px',
+          borderRadius: 12,
+          backgroundColor: '#10b981',
+          color: 'white',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
         }}
-        style={{ marginLeft: 8, padding: 4, borderRadius: 4, background: 'rgba(255,255,255,0.2)' }}
       >
-        <X style={{ width: 16, height: 16 }} />
-      </button>
-    </div>,
-    document.body
-  );
+        <Check style={{ width: 20, height: 20, flexShrink: 0 }} />
+        <span style={{ fontWeight: 500 }}>Se guardó correctamente</span>
+        {onDismissSavedToast && (
+          <button
+            type="button"
+            onClick={onDismissSavedToast}
+            style={{ marginLeft: 8, padding: 4, borderRadius: 4, background: 'rgba(255,255,255,0.2)' }}
+            aria-label="Cerrar"
+          >
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+        )}
+      </div>,
+      document.body
+    );
+
+  const securityToastBg =
+    securityToast?.type === 'success'
+      ? '#10b981'
+      : securityToast?.type === 'warning'
+        ? '#ea580c'
+        : securityToast?.type === 'error'
+          ? '#ef4444'
+          : 'transparent';
+  const securityToastEl =
+    securityToast &&
+    createPortal(
+      <div
+        role={securityToast.type === 'error' ? 'alert' : 'status'}
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          left: toastLeft,
+          zIndex: 2147483647,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 16px',
+          borderRadius: 12,
+          backgroundColor: securityToastBg,
+          color: 'white',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
+        }}
+      >
+        {securityToast.type === 'success' && <Check style={{ width: 20, height: 20, flexShrink: 0 }} />}
+        <span style={{ fontWeight: 500 }}>{securityToast.message}</span>
+        <button
+          type="button"
+          onClick={() => setSecurityToast(null)}
+          style={{ marginLeft: 8, padding: 4, borderRadius: 4, background: 'rgba(255,255,255,0.2)' }}
+          aria-label="Cerrar"
+        >
+          <X style={{ width: 16, height: 16 }} />
+        </button>
+      </div>,
+      document.body
+    );
 
   return (
     <div ref={settingsContainerRef} className="relative space-y-6">
-      {notificationToast}
+      {savedToast}
+      {securityToastEl}
       {/* Header */}
       <div>
         <h1 className={`text-4xl mb-2 ${isDark ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'}`}>
@@ -198,7 +251,7 @@ export function Settings() {
                             </div>
                           </div>
                           <button
-                            onClick={() => setIsEditModalOpen(true)}
+                            onClick={() => onEditProfile?.()}
                             className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
                           >
                             <Pencil className="w-4 h-4" />
@@ -206,18 +259,6 @@ export function Settings() {
                           </button>
                         </>
                       )}
-                      <ProfileEditModal
-                        isOpen={isEditModalOpen}
-                        onClose={() => setIsEditModalOpen(false)}
-                        onSaveSuccess={() => {
-                          setShowSavedNotification(true);
-                          setIsEditModalOpen(false);
-                        }}
-                        onSaveError={(msg) => {
-                          setErrorMessage(msg);
-                          setShowErrorNotification(true);
-                        }}
-                      />
                     </>
                   )}
 
@@ -225,36 +266,110 @@ export function Settings() {
                     <>
                       <div>
                         <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Contraseña Actual</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
-                            isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-                          }`}
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPasswordActual ? 'text' : 'password'}
+                            value={passwordActual}
+                            onChange={(e) => { setPasswordActual(e.target.value); setSecurityToast(null); }}
+                            placeholder="••••••••"
+                            className={`w-full px-4 py-3 pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                              isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordActual((v) => !v)}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                            title={showPasswordActual ? 'Ocultar contraseña' : 'Ver contraseña'}
+                            aria-label={showPasswordActual ? 'Ocultar contraseña' : 'Ver contraseña'}
+                          >
+                            {showPasswordActual ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Nueva Contraseña</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
-                            isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-                          }`}
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPasswordNueva ? 'text' : 'password'}
+                            value={passwordNueva}
+                            onChange={(e) => { setPasswordNueva(e.target.value); setSecurityToast(null); }}
+                            placeholder="••••••••"
+                            className={`w-full px-4 py-3 pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                              isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordNueva((v) => !v)}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                            title={showPasswordNueva ? 'Ocultar contraseña' : 'Ver contraseña'}
+                            aria-label={showPasswordNueva ? 'Ocultar contraseña' : 'Ver contraseña'}
+                          >
+                            {showPasswordNueva ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Confirmar Contraseña</label>
-                        <input
-                          type="password"
-                          placeholder="••••••••"
-                          className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
-                            isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-                          }`}
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPasswordConfirmar ? 'text' : 'password'}
+                            value={passwordConfirmar}
+                            onChange={(e) => { setPasswordConfirmar(e.target.value); setSecurityToast(null); }}
+                            placeholder="••••••••"
+                            className={`w-full px-4 py-3 pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                              isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordConfirmar((v) => !v)}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                            title={showPasswordConfirmar ? 'Ocultar contraseña' : 'Ver contraseña'}
+                            aria-label={showPasswordConfirmar ? 'Ocultar contraseña' : 'Ver contraseña'}
+                          >
+                            {showPasswordConfirmar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
-                      <button className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all">
-                        Actualizar Seguridad
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setSecurityToast(null);
+                          if (!passwordActual.trim()) {
+                            setSecurityToast({ type: 'warning', message: 'Ingresa tu contraseña actual.' });
+                            return;
+                          }
+                          if (!passwordNueva.trim()) {
+                            setSecurityToast({ type: 'warning', message: 'Ingresa la nueva contraseña.' });
+                            return;
+                          }
+                          if (passwordNueva !== passwordConfirmar) {
+                            setSecurityToast({ type: 'warning', message: 'La nueva contraseña y la confirmación no coinciden.' });
+                            return;
+                          }
+                          setSecurityLoading(true);
+                          try {
+                            await changePassword({ passwordActual: passwordActual.trim(), passwordNueva: passwordNueva.trim() });
+                            setSecurityToast({ type: 'success', message: 'Contraseña actualizada correctamente.' });
+                            setPasswordActual('');
+                            setPasswordNueva('');
+                            setPasswordConfirmar('');
+                          } catch (err) {
+                            setSecurityToast({
+                              type: 'error',
+                              message: err instanceof Error ? err.message : 'Error al actualizar la contraseña.',
+                            });
+                          } finally {
+                            setSecurityLoading(false);
+                          }
+                        }}
+                        disabled={securityLoading}
+                        className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {securityLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                        {securityLoading ? 'Actualizando...' : 'Actualizar Seguridad'}
                       </button>
                     </>
                   )}

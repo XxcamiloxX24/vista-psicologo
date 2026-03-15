@@ -79,3 +79,21 @@ export function getAuthHeaders(): HeadersInit {
     ...(token && { Authorization: `Bearer ${token}` }),
   };
 }
+
+export interface ChangePasswordPayload {
+  passwordActual: string;
+  passwordNueva: string;
+}
+
+export async function changePassword(payload: ChangePasswordPayload): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/Psicologo/cambiar-password`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = (err as { message?: string })?.message ?? 'Error al cambiar la contraseña.';
+    throw new Error(message);
+  }
+}

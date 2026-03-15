@@ -3,7 +3,7 @@ import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, 
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 
-type Section = 'dashboard' | 'appointments' | 'messages' | 'followups' | 'students' | 'about' | 'settings';
+type Section = 'dashboard' | 'appointments' | 'messages' | 'followups' | 'students' | 'about' | 'settings' | 'profile-edit';
 
 interface SidebarProps {
   activeSection: Section;
@@ -12,7 +12,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
-  const { displayName, initials } = usePsychologist();
+  const { displayName, initials, profileImageUrl } = usePsychologist();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
@@ -82,17 +82,17 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
             onMouseEnter={() => setHoveredSettings(true)}
             onMouseLeave={() => setHoveredSettings(false)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-              activeSection === 'settings'
+              activeSection === 'settings' || activeSection === 'profile-edit'
                 ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
                 : hoveredSettings
                 ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
                 : 'text-slate-600'
             }`}
-            style={activeSection !== 'settings' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
+            style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
           >
             <Settings
-              className={`w-5 h-5 shrink-0 ${activeSection === 'settings' ? 'text-purple-600 dark:text-purple-400' : hoveredSettings ? 'text-purple-600 dark:text-purple-400' : ''}`}
-              style={activeSection !== 'settings' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
+              className={`w-5 h-5 shrink-0 ${activeSection === 'settings' || activeSection === 'profile-edit' ? 'text-purple-600 dark:text-purple-400' : hoveredSettings ? 'text-purple-600 dark:text-purple-400' : ''}`}
+              style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
             />
             <span>Configuración</span>
           </button>
@@ -101,9 +101,17 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
         {/* User Info */}
         <div className="p-4 border-t border-purple-100/50 dark:border-slate-600/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white shrink-0">
-              <span>{initials}</span>
-            </div>
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white shrink-0">
+                <span>{initials}</span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm truncate text-slate-800" style={isDark ? { color: 'white' } : undefined}>{displayName}</p>
               <p className="text-xs text-slate-500" style={isDark ? { color: 'white' } : undefined}>Psicólogo</p>
