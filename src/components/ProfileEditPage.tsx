@@ -167,7 +167,7 @@ export function ProfileEditPage({ onBack }: ProfileEditPageProps) {
         <div className="w-fit self-start sm:self-center">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => onBack()}
             title="Volver a Configuración"
             className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
               isDark
@@ -417,7 +417,7 @@ export function ProfileEditPage({ onBack }: ProfileEditPageProps) {
           <div className="grid grid-cols-2 gap-3 pt-4">
             <button
               type="button"
-              onClick={onBack}
+              onClick={() => onBack()}
               className={`rounded-xl border px-4 py-3 transition-colors ${
                 isDark
                   ? 'border-slate-600 text-slate-200 hover:bg-slate-700'
