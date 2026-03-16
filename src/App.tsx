@@ -13,6 +13,7 @@ import { Sidebar } from "./components/Sidebar";
 import { Login } from "./components/Login";
 import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
 import { PsychologistProvider } from "./contexts/PsychologistContext";
+import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { isAuthenticated as checkAuth, removeToken } from "./lib/auth";
 
@@ -152,6 +153,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <PsychologistProvider>
+        <NotificationsProvider>
         <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative">
         {logoutOverlay}
         <Sidebar
@@ -167,6 +169,7 @@ export default function App() {
         </main>
 
       </div>
+        </NotificationsProvider>
       </PsychologistProvider>
     </ThemeProvider>
   );

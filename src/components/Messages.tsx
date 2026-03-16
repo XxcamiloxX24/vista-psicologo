@@ -88,6 +88,12 @@ export function Messages() {
   const [availableApprentices, setAvailableApprentices] = useState<{ aprCodigo: number; name: string; ficha: string }[]>([]);
   const [loadingApprentices, setLoadingApprentices] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState<number | null>(null);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingStartSentRef = useRef(false);
+  const typingAppointmentIdRef = useRef<number | null>(null);
+  const selectedChatRef = useRef<number | null>(selectedChat);
+  selectedChatRef.current = selectedChat;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -193,6 +199,11 @@ export function Messages() {
       );
     });
 
+    socket.on('user_typing', (data: { appointmentId: number; userId: number; isTyping: boolean }) => {
+      if (data.appointmentId !== selectedChatRef.current || data.userId === psychologistId) return;
+      setOtherUserTyping(data.isTyping);
+    });
+
     socketRef.current = socket;
     return () => {
       socket.disconnect();
@@ -200,9 +211,51 @@ export function Messages() {
     };
   }, [selectedChat, psychologistId, chats]);
 
+  const emitTypingStop = useCallback(() => {
+    const aptId = typingAppointmentIdRef.current;
+    if (typingStartSentRef.current && aptId !== null && socketRef.current) {
+      socketRef.current.emit('typing_stop', { appointmentId: aptId });
+      typingStartSentRef.current = false;
+      typingAppointmentIdRef.current = null;
+    }
+    if (typingStopTimeoutRef.current) {
+      clearTimeout(typingStopTimeoutRef.current);
+      typingStopTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    setOtherUserTyping(false);
+    return () => emitTypingStop();
+  }, [selectedChat, emitTypingStop]);
+
+  const handleMessageInputChange = useCallback(
+    (value: string) => {
+      setMessageText(value);
+      if (selectedChat === null || !socketRef.current) return;
+      if (typingStopTimeoutRef.current) {
+        clearTimeout(typingStopTimeoutRef.current);
+      }
+      if (value.trim().length > 0) {
+        if (!typingStartSentRef.current) {
+          socketRef.current.emit('typing_start', { appointmentId: selectedChat });
+          typingStartSentRef.current = true;
+          typingAppointmentIdRef.current = selectedChat;
+        }
+        typingStopTimeoutRef.current = setTimeout(() => {
+          emitTypingStop();
+        }, 1500);
+      } else {
+        emitTypingStop();
+      }
+    },
+    [selectedChat, emitTypingStop]
+  );
+
   const handleSend = async () => {
     if (!messageText.trim() || selectedChat === null || !socketRef.current || !psychologistId) return;
 
+    emitTypingStop();
     setSending(true);
     const text = messageText.trim();
     setMessageText('');
@@ -503,6 +556,14 @@ export function Messages() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {otherUserTyping && (
+                  <div className={`px-4 py-1.5 border-t shrink-0 ${isDark ? 'border-slate-600/50 bg-slate-800/50' : 'border-purple-100/50 bg-purple-50/30'}`}>
+                    <p className={`text-xs italic ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {currentChat.name} está escribiendo...
+                    </p>
+                  </div>
+                )}
+
                 <div className={`p-4 border-t shrink-0 ${isDark ? 'border-slate-600/50 bg-slate-800/95' : 'border-purple-100/50 bg-white'}`}>
                   <div className="flex items-center gap-3">
                     <button className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? 'hover:bg-slate-600/50' : 'hover:bg-purple-100/50'}`}>
@@ -511,7 +572,7 @@ export function Messages() {
                     <input
                       type="text"
                       value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
+                      onChange={(e) => handleMessageInputChange(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                       placeholder="Escribe un mensaje..."
                       className={`flex-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50'}`}

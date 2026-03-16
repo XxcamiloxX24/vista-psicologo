@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut } from 'lucide-react';
+import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNotifications } from '../contexts/NotificationsContext';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 type Section = 'dashboard' | 'appointments' | 'messages' | 'followups' | 'students' | 'about' | 'settings' | 'profile-edit';
 
@@ -14,9 +16,12 @@ interface SidebarProps {
 export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
   const { displayName, initials, profileImageUrl } = usePsychologist();
   const { resolvedTheme } = useTheme();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const isDark = resolvedTheme === 'dark';
   const [hoveredNav, setHoveredNav] = useState<string | null>(null);
   const [hoveredSettings, setHoveredSettings] = useState(false);
+  const [hoveredNotifications, setHoveredNotifications] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const menuItems = [
     { id: 'dashboard' as Section, label: 'Inicio', icon: Home },
     { id: 'appointments' as Section, label: 'Citas', icon: Calendar },
@@ -75,27 +80,110 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
           })}
         </nav>
 
-        {/* Settings Button */}
-        <div className="p-4 border-t border-purple-100/50 dark:border-slate-600/50">
-          <button
-            onClick={() => onSectionChange('settings')}
-            onMouseEnter={() => setHoveredSettings(true)}
-            onMouseLeave={() => setHoveredSettings(false)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-              activeSection === 'settings' || activeSection === 'profile-edit'
-                ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
-                : hoveredSettings
-                ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
-                : 'text-slate-600'
-            }`}
-            style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
-          >
-            <Settings
-              className={`w-5 h-5 shrink-0 ${activeSection === 'settings' || activeSection === 'profile-edit' ? 'text-purple-600 dark:text-purple-400' : hoveredSettings ? 'text-purple-600 dark:text-purple-400' : ''}`}
+        {/* Configuración y Notificaciones */}
+        <div className="p-4 border-t border-purple-100/50 dark:border-slate-600/50 space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSectionChange('settings')}
+              onMouseEnter={() => setHoveredSettings(true)}
+              onMouseLeave={() => setHoveredSettings(false)}
+              className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                activeSection === 'settings' || activeSection === 'profile-edit'
+                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
+                  : hoveredSettings
+                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
+                  : 'text-slate-600'
+              }`}
               style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
-            />
-            <span>Configuración</span>
-          </button>
+            >
+              <Settings
+                className={`w-5 h-5 shrink-0 ${activeSection === 'settings' || activeSection === 'profile-edit' ? 'text-purple-600 dark:text-purple-400' : hoveredSettings ? 'text-purple-600 dark:text-purple-400' : ''}`}
+                style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
+              />
+              <span>Configuración</span>
+            </button>
+            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={() => setNotificationsOpen((v) => !v)}
+                  onMouseEnter={() => setHoveredNotifications(true)}
+                  onMouseLeave={() => setHoveredNotifications(false)}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 relative ${
+                    hoveredNotifications
+                      ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
+                      : 'text-slate-600'
+                  }`}
+                  style={!hoveredNotifications && isDark ? { color: 'white' } : undefined}
+                  title="Notificaciones"
+                  aria-label="Ver notificaciones"
+                >
+                  <Bell className="w-5 h-5 shrink-0" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-80 p-0 rounded-xl border border-purple-200/50 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl"
+                align="start"
+                side="right"
+                sideOffset={8}
+              >
+                <div className="p-3 border-b border-purple-100/50 dark:border-slate-600 flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">Notificaciones</span>
+                  {notifications.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllAsRead}
+                      className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+                    >
+                      Marcar todas leídas
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[320px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-sm text-slate-500 dark:text-slate-400 text-center">
+                      No tienes notificaciones
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-purple-100/50 dark:divide-slate-600">
+                      {notifications.map((n) => (
+                        <li key={n.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              markAsRead(n.id);
+                              onSectionChange('messages');
+                              setNotificationsOpen(false);
+                            }}
+                            className={`w-full text-left p-3 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 transition-colors ${!n.read ? 'bg-purple-50/30 dark:bg-slate-700/30' : ''}`}
+                          >
+                            <p className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate">
+                              {n.title}
+                            </p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">
+                              {n.message}
+                            </p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                              {new Date(n.createdAt).toLocaleString('es-CO', {
+                                day: '2-digit',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* User Info */}
