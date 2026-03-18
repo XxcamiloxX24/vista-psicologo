@@ -15,7 +15,15 @@ import { TermsAndPrivacy } from "./components/TermsAndPrivacy";
 import { PsychologistProvider } from "./contexts/PsychologistContext";
 import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { isAuthenticated as checkAuth, removeToken } from "./lib/auth";
+import {
+  bootstrapSession,
+  isAuthenticated as checkAuth,
+  removeToken,
+  refreshSession,
+  scheduleProactiveRefresh,
+  getToken,
+  isAccessExpired,
+} from "./lib/auth";
 
 type Section =
   | "dashboard"
@@ -30,12 +38,38 @@ type Section =
 type AuthView = "login" | "terms" | "app";
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(checkAuth());
+  const [authBootstrapping, setAuthBootstrapping] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
 
   useEffect(() => {
-    setIsAuthenticated(checkAuth());
+    let cancelled = false;
+    (async () => {
+      await bootstrapSession();
+      if (!cancelled) {
+        setIsAuthenticated(checkAuth());
+        setAuthBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || authBootstrapping) return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      const t = getToken();
+      if (t && isAccessExpired(t, 150)) {
+        void refreshSession().then((ok) => {
+          if (ok) scheduleProactiveRefresh();
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [isAuthenticated, authBootstrapping]);
   const [activeSection, setActiveSection] =
     useState<Section>("dashboard");
   const [targetStudentId, setTargetStudentId] = useState<string | null>(null);
@@ -71,6 +105,17 @@ export default function App() {
   const handleLogout = useCallback(() => {
     setIsLoggingOut(true);
   }, []);
+
+  if (authBootstrapping) {
+    return (
+      <ThemeProvider>
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400">
+          <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+          <p className="text-sm">Restaurando sesión…</p>
+        </div>
+      </ThemeProvider>
+    );
+  }
 
   // Pantalla de login o términos (no autenticado)
   if (!isAuthenticated) {

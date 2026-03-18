@@ -1,4 +1,4 @@
-import { getAuthHeaders, getToken } from './auth';
+import { authFetch, getToken } from './auth';
 
 // Normalizar: quitar barra final para evitar doble "//" en las URLs
 const CHAT_API_URL = (import.meta.env.VITE_CHAT_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
@@ -33,9 +33,8 @@ export interface CreateRoomParams {
 }
 
 export async function createRoom(params: CreateRoomParams): Promise<{ roomId: string; appointmentId: number }> {
-  const response = await fetch(`${CHAT_API_URL}/api/chat/room`, {
+  const response = await authFetch(`${CHAT_API_URL}/api/chat/room`, {
     method: 'POST',
-    headers: getAuthHeaders(),
     body: JSON.stringify(params),
   });
 
@@ -52,9 +51,7 @@ export async function createRoom(params: CreateRoomParams): Promise<{ roomId: st
 }
 
 export async function getConversations(): Promise<Conversation[]> {
-  const response = await fetch(`${CHAT_API_URL}/api/chat/conversations`, {
-    headers: getAuthHeaders(),
-  });
+  const response = await authFetch(`${CHAT_API_URL}/api/chat/conversations`);
 
   if (!response.ok) {
     throw new Error('Error al obtener conversaciones');
@@ -64,9 +61,7 @@ export async function getConversations(): Promise<Conversation[]> {
 }
 
 export async function getChatHistory(appointmentId: number): Promise<ChatMessage[]> {
-  const response = await fetch(`${CHAT_API_URL}/api/chat/history/${appointmentId}`, {
-    headers: getAuthHeaders(),
-  });
+  const response = await authFetch(`${CHAT_API_URL}/api/chat/history/${appointmentId}`);
 
   if (!response.ok) {
     if (response.status === 404) return [];

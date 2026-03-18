@@ -1,4 +1,4 @@
-import { getAuthHeaders } from './auth';
+import { authFetch } from './auth';
 
 import { API_BASE_URL } from './config';
 
@@ -10,9 +10,7 @@ export interface CitaPorDia {
 }
 
 export async function getCitasHoy(): Promise<number> {
-  const response = await fetch(`${API_BASE_URL}/api/Citas/estadistica/por-dia`, {
-    headers: getAuthHeaders(),
-  });
+  const response = await authFetch(`${API_BASE_URL}/api/Citas/estadistica/por-dia`);
 
   if (!response.ok) {
     throw new Error('Error al obtener las citas del día');

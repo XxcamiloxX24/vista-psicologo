@@ -1,4 +1,4 @@
-import { getAuthHeaders, getToken, getPsychologistId as getStoredPsychologistId } from './auth';
+import { authFetch, getToken, getPsychologistId as getStoredPsychologistId } from './auth';
 
 import { API_BASE_URL } from './config';
 
@@ -59,9 +59,7 @@ export async function getPsychologist(id?: number): Promise<Psychologist | null>
   let psychologistId = id ?? getPsychologistIdFromToken() ?? getStoredPsychologistId();
 
   if (psychologistId == null) {
-    const meResponse = await fetch(`${API_BASE_URL}/api/Psicologo/me`, {
-      headers: getAuthHeaders(),
-    });
+    const meResponse = await authFetch(`${API_BASE_URL}/api/Psicologo/me`);
     if (meResponse.ok) {
       const meData = await meResponse.json();
       const me = Array.isArray(meData) ? meData[0] : meData;
@@ -70,9 +68,7 @@ export async function getPsychologist(id?: number): Promise<Psychologist | null>
     return null;
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/Psicologo/${psychologistId}`, {
-    headers: getAuthHeaders(),
-  });
+  const response = await authFetch(`${API_BASE_URL}/api/Psicologo/${psychologistId}`);
 
   if (!response.ok) return null;
 
@@ -81,7 +77,7 @@ export async function getPsychologist(id?: number): Promise<Psychologist | null>
   return psychologist ?? null;
 }
 
-async function fetchWithTimeout(
+async function authFetchWithTimeout(
   url: string,
   options: RequestInit,
   timeoutMs = 15000
@@ -89,11 +85,10 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, {
+    return await authFetch(url, {
       ...options,
       signal: controller.signal,
     });
-    return response;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -103,14 +98,11 @@ export async function updatePsychologist(
   id: number,
   data: PsychologistUpdate
 ): Promise<Psychologist | null> {
-  const response = await fetchWithTimeout(
-    `${API_BASE_URL}/api/Psicologo/editar/${id}`,
-    {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await authFetchWithTimeout(`${API_BASE_URL}/api/Psicologo/editar/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

@@ -1,4 +1,4 @@
-import { getAuthHeaders, getToken } from './auth';
+import { authFetch, getToken } from './auth';
 
 const IMAGES_API_URL = (import.meta.env.VITE_IMAGES_API_URL ?? 'https://api-imagenes-healthymind.onrender.com').replace(
   /\/+$/,
@@ -31,9 +31,7 @@ export async function listImages(context: string, limit = 50): Promise<ImageItem
   url.searchParams.set('context', context);
   url.searchParams.set('limit', String(limit));
 
-  const res = await fetch(url.toString(), {
-    headers: getAuthHeaders(),
-  });
+  const res = await authFetch(url.toString());
 
   if (!res.ok) return [];
   const data = await res.json();
@@ -68,11 +66,8 @@ export async function uploadProfileImage(file: File): Promise<{ url: string; id:
   formData.append('image', file);
   formData.append('context', 'perfil');
 
-  const res = await fetch(`${IMAGES_API_URL}/api/images/upload`, {
+  const res = await authFetch(`${IMAGES_API_URL}/api/images/upload`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-    },
     body: formData,
   });
 
@@ -93,9 +88,8 @@ export async function uploadProfileImage(file: File): Promise<{ url: string; id:
  */
 export async function deleteImage(id: string): Promise<void> {
   if (!getToken()) throw new Error('Debes iniciar sesión');
-  const res = await fetch(`${IMAGES_API_URL}/api/images/${id}`, {
+  const res = await authFetch(`${IMAGES_API_URL}/api/images/${id}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

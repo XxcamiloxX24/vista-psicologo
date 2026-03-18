@@ -160,6 +160,13 @@ export function Messages() {
       });
   }, [selectedChat, psychologistId]);
 
+  const [socketEpoch, setSocketEpoch] = useState(0);
+  useEffect(() => {
+    const onTokenRefresh = () => setSocketEpoch((e) => e + 1);
+    window.addEventListener('healthymind-token-refreshed', onTokenRefresh);
+    return () => window.removeEventListener('healthymind-token-refreshed', onTokenRefresh);
+  }, []);
+
   // Conexión Socket.io
   useEffect(() => {
     const config = getSocketConfig();
@@ -209,7 +216,7 @@ export function Messages() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [selectedChat, psychologistId, chats]);
+  }, [selectedChat, psychologistId, chats, socketEpoch]);
 
   const emitTypingStop = useCallback(() => {
     const aptId = typingAppointmentIdRef.current;

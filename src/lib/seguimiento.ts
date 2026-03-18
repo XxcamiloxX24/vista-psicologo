@@ -1,4 +1,4 @@
-import { getAuthHeaders, getPsychologistId } from './auth';
+import { authFetch, getPsychologistId } from './auth';
 import { getPsychologistIdFromToken } from './psychologist';
 
 import { API_BASE_URL } from './config';
@@ -34,7 +34,7 @@ export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise
   const url = new URL(`${API_BASE_URL}/api/SeguimientoAprendiz/mis-seguimientos`);
   url.searchParams.set('Pagina', String(pagina));
   url.searchParams.set('TamanoPagina', String(tamanoPagina));
-  const response = await fetch(url.toString(), { headers: getAuthHeaders() });
+  const response = await authFetch(url.toString());
   if (!response.ok) throw new Error('Error al listar seguimientos');
   return response.json();
 }
@@ -95,7 +95,7 @@ export async function getTendenciaEstado(params: TendenciaEstadoParams): Promise
     if (params.hasta) url.searchParams.set('hasta', params.hasta);
   }
 
-  const response = await fetch(url.toString(), { headers: getAuthHeaders() });
+  const response = await authFetch(url.toString());
   if (!response.ok) {
     throw new Error('Error al obtener tendencia por estado');
   }

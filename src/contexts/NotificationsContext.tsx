@@ -69,6 +69,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const [socketEpoch, setSocketEpoch] = useState(0);
+  useEffect(() => {
+    const onTokenRefresh = () => setSocketEpoch((e) => e + 1);
+    window.addEventListener('healthymind-token-refreshed', onTokenRefresh);
+    return () => window.removeEventListener('healthymind-token-refreshed', onTokenRefresh);
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -98,7 +105,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.disconnect();
     };
-  }, [addNotification]);
+  }, [addNotification, socketEpoch]);
 
   const value: NotificationsContextType = {
     notifications,
