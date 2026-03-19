@@ -27,7 +27,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
     { id: 'appointments' as Section, label: 'Citas', icon: Calendar },
     { id: 'messages' as Section, label: 'Mensajes', icon: MessageSquare },
     { id: 'followups' as Section, label: 'Seguimientos', icon: Activity },
-    { id: 'students' as Section, label: 'Aprendices', icon: Users },
+    { id: 'students' as Section, label: 'Fichas', icon: Users },
     { id: 'about' as Section, label: 'Sobre Nosotros', icon: Info },
   ];
 

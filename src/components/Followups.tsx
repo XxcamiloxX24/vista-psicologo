@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, X, Filter, LayoutGrid, Table2 } from 'lucide-react';
+import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, X, Filter, LayoutGrid, Table2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { StudentProfile } from './StudentProfile.tsx';
 import { FollowupsTable } from './FollowupsTable';
@@ -17,6 +17,8 @@ interface Student {
   email: string;
   status: 'stable' | 'observation' | 'critical';
   program: string;
+  /** Texto del estado desde la API (misma fila que la tabla) */
+  estadoTexto?: string;
 }
 
 function mapEstadoToStatus(estado: string): 'stable' | 'observation' | 'critical' {
@@ -43,6 +45,7 @@ function seguimientoToStudent(r: SeguimientoListarResult): Student {
     email: r.aprendiz?.aprendiz?.contacto?.correoInstitucional ?? '',
     status: mapEstadoToStatus(r.estadoSeguimiento ?? ''),
     program: r.aprendiz?.ficha?.programaFormacion?.progNombre ?? '',
+    estadoTexto: (r.estadoSeguimiento ?? '').trim() || undefined,
   };
 }
 
@@ -74,56 +77,14 @@ export function Followups({ targetStudentId }: FollowupsProps) {
   const [tableTotalRegistros, setTableTotalRegistros] = useState(0);
   const [tableLoading, setTableLoading] = useState(false);
 
-  const [students, setStudents] = useState<Student[]>([
-    {
-      id: 1,
-      name: 'Ana García Pérez',
-      ficha: '2589634',
-      email: 'ana.garcia@sena.edu.co',
-      status: 'stable',
-      program: 'Análisis y Desarrollo de Software'
-    },
-    {
-      id: 2,
-      name: 'Carlos Rodríguez Martínez',
-      ficha: '2589635',
-      email: 'carlos.rodriguez@sena.edu.co',
-      status: 'observation',
-      program: 'Diseño Gráfico'
-    },
-    {
-      id: 3,
-      name: 'María López Santos',
-      ficha: '2589636',
-      email: 'maria.lopez@sena.edu.co',
-      status: 'critical',
-      program: 'Administración de Empresas'
-    },
-    {
-      id: 4,
-      name: 'Juan Martínez Díaz',
-      ficha: '2589637',
-      email: 'juan.martinez@sena.edu.co',
-      status: 'critical',
-      program: 'Gestión Logística'
-    },
-    {
-      id: 5,
-      name: 'Laura Pérez González',
-      ficha: '2589638',
-      email: 'laura.perez@sena.edu.co',
-      status: 'observation',
-      program: 'Contabilidad'
-    },
-    {
-      id: 6,
-      name: 'Pedro González Ruiz',
-      ficha: '2589639',
-      email: 'pedro.gonzalez@sena.edu.co',
-      status: 'stable',
-      program: 'Marketing Digital'
-    }
-  ]);
+  const [cardsData, setCardsData] = useState<SeguimientoListarResult[]>([]);
+  const [cardsPage, setCardsPage] = useState(1);
+  const [cardsPageSize] = useState(12);
+  const [cardsTotalPages, setCardsTotalPages] = useState(0);
+  const [cardsTotalRegistros, setCardsTotalRegistros] = useState(0);
+  const [cardsLoading, setCardsLoading] = useState(true);
+  /** Tras crear seguimiento o acciones que requieran refrescar listas */
+  const [listRefreshKey, setListRefreshKey] = useState(0);
 
   const [newFollowup, setNewFollowup] = useState({
     studentId: '',
@@ -159,25 +120,38 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         if (!cancelled) setTableLoading(false);
       });
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [viewMode, tablePage, tablePageSize]);
+  }, [viewMode, tablePage, tablePageSize, listRefreshKey]);
+
+  useEffect(() => {
+    if (viewMode !== 'cards') return;
+    let cancelled = false;
+    const tid = setTimeout(() => { if (!cancelled) setCardsLoading(true); }, 0);
+    listarSeguimientos(cardsPage, cardsPageSize)
+      .then((res) => {
+        if (cancelled) return;
+        setCardsData(res.resultados ?? []);
+        setCardsTotalPages(res.totalPaginas ?? 0);
+        setCardsTotalRegistros(res.totalRegistros ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCardsData([]);
+          setCardsTotalPages(0);
+          setCardsTotalRegistros(0);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCardsLoading(false);
+      });
+    return () => { cancelled = true; clearTimeout(tid); };
+  }, [viewMode, cardsPage, cardsPageSize, listRefreshKey]);
 
   const handleCreateFollowup = () => {
     if (!newFollowup.studentId || !newFollowup.status) {
       alert('Por favor complete todos los campos obligatorios');
       return;
     }
-
-    const newId = Math.max(...students.map(s => s.id)) + 1;
-    const newStudent: Student = {
-      id: newId,
-      name: newFollowup.studentName,
-      email: newFollowup.email,
-      ficha: newFollowup.ficha,
-      program: newFollowup.program,
-      status: newFollowup.status
-    };
-
-    setStudents([...students, newStudent]);
+    // TODO: llamar API crear seguimiento; mientras tanto se refresca el listado
     setShowNewFollowupModal(false);
     setNewFollowup({
       studentId: '',
@@ -188,6 +162,18 @@ export function Followups({ targetStudentId }: FollowupsProps) {
       status: 'stable',
       initialNotes: ''
     });
+    setCardsPage(1);
+    setTablePage(1);
+    setListRefreshKey((k) => k + 1);
+  };
+
+  const students = cardsData.map(seguimientoToStudent);
+
+  const studentBySegCodigo = (segCodigo: number): Student | undefined => {
+    const r =
+      cardsData.find((x) => x.segCodigo === segCodigo) ??
+      tableData.find((x) => x.segCodigo === segCodigo);
+    return r ? seguimientoToStudent(r) : undefined;
   };
 
   const getStatusColor = (status: string) => {
@@ -247,8 +233,8 @@ export function Followups({ targetStudentId }: FollowupsProps) {
       />
     );
   }
-  if (selectedStudent) {
-    const student = students.find(s => s.id === selectedStudent);
+  if (selectedStudent != null) {
+    const student = studentBySegCodigo(selectedStudent);
     if (student) {
       return (
         <StudentProfile
@@ -257,6 +243,27 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         />
       );
     }
+    if (cardsLoading || tableLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-24 gap-2 text-slate-500 dark:text-slate-400">
+          <p>Cargando…</p>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4 p-6 text-center">
+        <p className="text-slate-600 dark:text-slate-400">
+          No se encontró ese seguimiento en los datos cargados. Usa la paginación o la vista Tabla.
+        </p>
+        <button
+          type="button"
+          onClick={() => setSelectedStudent(null)}
+          className="text-purple-600 dark:text-purple-400 underline"
+        >
+          Volver al listado
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -512,20 +519,17 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         document.body
       )}
 
-      {/* Students Grid (max 12) */}
+      {/* Cards: mismos datos que la API de la tabla (mis-seguimientos), paginado */}
       {viewMode === 'cards' && (
         <>
-          {filteredStudents.length > 12 && (
-            <div
-              className={`rounded-xl px-4 py-3 text-sm ${
-                isDark ? 'bg-amber-900/30 border border-amber-600/50 text-amber-200' : 'bg-amber-50 border border-amber-200 text-amber-800'
-              }`}
-            >
-              Hay {filteredStudents.length} registros. La vista de cards muestra máximo 12. Cambia a vista Tabla para ver todos.
+          {cardsLoading ? (
+            <div className={`rounded-2xl border px-6 py-16 text-center text-slate-500 ${isDark ? 'border-slate-600 bg-slate-800/50' : 'border-purple-100/50 bg-white/90'}`}>
+              Cargando seguimientos…
             </div>
-          )}
+          ) : (
+            <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredStudents.slice(0, 12).map((student) => {
+        {filteredStudents.map((student) => {
           const statusConfig = getStatusColor(student.status);
           const StatusIcon = statusConfig.icon;
           const cfg = isDark ? statusConfig.dark : statusConfig.light;
@@ -567,7 +571,7 @@ export function Followups({ targetStudentId }: FollowupsProps) {
                   className={`text-xs px-3 py-1 rounded-full ${cfg.badge}`}
                   style={'badgeStyle' in cfg ? (cfg as { badgeStyle?: React.CSSProperties }).badgeStyle : undefined}
                 >
-                  {statusConfig.label}
+                  {student.estadoTexto || statusConfig.label}
                 </span>
                 <span className={`text-xs group-hover:underline ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
                   Ver perfil →
@@ -578,12 +582,46 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         })}
       </div>
 
-      {filteredStudents.length === 0 && (
+      {!cardsLoading && filteredStudents.length === 0 && (
         <div className="text-center py-12">
           <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-          <p className="text-slate-600 dark:text-slate-400">No se encontraron aprendices</p>
+          <p className="text-slate-600 dark:text-slate-400">
+            {searchTerm.trim()
+              ? 'Ningún resultado coincide con la búsqueda en esta página'
+              : cardsTotalRegistros === 0
+                ? 'No tienes seguimientos activos'
+                : 'No hay registros en esta página'}
+          </p>
         </div>
       )}
+
+      <div className={`flex flex-wrap items-center justify-between gap-4 pt-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        <span className="text-sm">
+          {cardsTotalRegistros} registro{cardsTotalRegistros !== 1 ? 's' : ''} · Página {cardsPage} de {cardsTotalPages || 1}
+        </span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => setCardsPage((p) => Math.max(1, p - 1))}
+            disabled={cardsPage <= 1 || cardsLoading}
+            className={`p-2 rounded-lg disabled:opacity-40 ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-200'}`}
+            aria-label="Página anterior"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setCardsPage((p) => p + 1)}
+            disabled={cardsPage >= cardsTotalPages || cardsTotalPages < 1 || cardsLoading}
+            className={`p-2 rounded-lg disabled:opacity-40 ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-200'}`}
+            aria-label="Página siguiente"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+            </>
+          )}
         </>
       )}
 

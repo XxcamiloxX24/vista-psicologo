@@ -10,9 +10,10 @@ export interface SeguimientoListarResult {
     aprFicCodigo: number;
     aprendiz: {
       codigo: number;
+      nroDocumento?: string | number | null;
       nombres?: { primerNombre?: string | null; segundoNombre?: string | null };
       apellidos?: { primerApellido?: string | null; segundoApellido?: string | null };
-      contacto?: { correoInstitucional?: string | null };
+      contacto?: { correoInstitucional?: string | null; correoPersonal?: string | null };
     };
     ficha: {
       ficCodigo: number;
