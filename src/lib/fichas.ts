@@ -137,3 +137,15 @@ export async function getAprendicesPorFicha(fichaCodigo: number): Promise<Aprend
   return Array.isArray(data) ? data : [];
 }
 
+export async function getAprendizFichaPorDocumento(documento: string): Promise<AprendizFichaRaw[]> {
+  const response = await authFetch(
+    `${API_BASE_URL}/api/AprendizFicha/buscar?AprendizDocumento=${encodeURIComponent(documento)}`,
+  );
+  if (!response.ok) {
+    if (response.status === 404) return [];
+    throw new Error('Error al obtener vínculos aprendiz-ficha');
+  }
+  const data = (await response.json()) as AprendizFichaRaw[];
+  return Array.isArray(data) ? data : [];
+}
+

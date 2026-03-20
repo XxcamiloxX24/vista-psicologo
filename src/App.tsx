@@ -5,6 +5,7 @@ import { Dashboard } from "./components/Dashboard";
 import { Appointments } from "./components/Appointments";
 import { Messages } from "./components/Messages";
 import { Followups } from "./components/Followups";
+import { FollowupCreatePage, type FollowupCreateConfig } from "./components/FollowupCreatePage";
 import { Students } from "./components/Students";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
@@ -30,6 +31,7 @@ type Section =
   | "appointments"
   | "messages"
   | "followups"
+  | "followups-create"
   | "students"
   | "about"
   | "settings"
@@ -73,6 +75,10 @@ export default function App() {
   const [activeSection, setActiveSection] =
     useState<Section>("dashboard");
   const [targetStudentId, setTargetStudentId] = useState<string | null>(null);
+  /** Página crear seguimiento: manual o datos desde Fichas */
+  const [followupCreateConfig, setFollowupCreateConfig] = useState<FollowupCreateConfig | null>(null);
+  /** Incrementar para forzar recarga de listas en Seguimientos tras crear */
+  const [followupsListKey, setFollowupsListKey] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutProgress, setLogoutProgress] = useState(0);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
@@ -98,9 +104,41 @@ export default function App() {
   }, [isLoggingOut]);
 
   const handleViewFollowup = (studentId: string) => {
+    setFollowupCreateConfig(null);
     setTargetStudentId(studentId);
     setActiveSection("followups");
   };
+
+  const handleNavigateCreateSeguimiento = useCallback(
+    (payload: {
+      aprendizFichaCodigo: number;
+      name: string;
+      email: string;
+      program: string;
+      ficha: string;
+    }) => {
+      setTargetStudentId(null);
+      setFollowupCreateConfig({ mode: "fromFicha", ...payload, key: Date.now() });
+      setActiveSection("followups-create");
+    },
+    []
+  );
+
+  const handleOpenFollowupCreateManual = useCallback(() => {
+    setFollowupCreateConfig({ mode: "manual", key: Date.now() });
+    setActiveSection("followups-create");
+  }, []);
+
+  const closeFollowupCreate = useCallback(() => {
+    setFollowupCreateConfig(null);
+    setActiveSection("followups");
+  }, []);
+
+  const handleFollowupCreateSuccess = useCallback(() => {
+    setFollowupCreateConfig(null);
+    setActiveSection("followups");
+    setFollowupsListKey((k) => k + 1);
+  }, []);
 
   const handleLogout = useCallback(() => {
     setIsLoggingOut(true);
@@ -145,9 +183,34 @@ export default function App() {
       case "messages":
         return <Messages />;
       case "followups":
-        return <Followups targetStudentId={targetStudentId} />;
+        return (
+          <Followups
+            targetStudentId={targetStudentId}
+            listRefreshKey={followupsListKey}
+            onOpenCreateManual={handleOpenFollowupCreateManual}
+          />
+        );
+      case "followups-create":
+        return followupCreateConfig ? (
+          <FollowupCreatePage
+            config={followupCreateConfig}
+            onBack={closeFollowupCreate}
+            onSuccess={handleFollowupCreateSuccess}
+          />
+        ) : (
+          <Followups
+            targetStudentId={targetStudentId}
+            listRefreshKey={followupsListKey}
+            onOpenCreateManual={handleOpenFollowupCreateManual}
+          />
+        );
       case "students":
-        return <Students onViewFollowup={handleViewFollowup} />;
+        return (
+          <Students
+            onViewFollowup={handleViewFollowup}
+            onNavigateCreateSeguimiento={handleNavigateCreateSeguimiento}
+          />
+        );
       case "about":
         return <About />;
       case "settings":
@@ -203,7 +266,10 @@ export default function App() {
         {logoutOverlay}
         <Sidebar
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
+          onSectionChange={(section) => {
+            if (section !== "followups-create") setFollowupCreateConfig(null);
+            setActiveSection(section);
+          }}
           onLogout={handleLogout}
         />
 

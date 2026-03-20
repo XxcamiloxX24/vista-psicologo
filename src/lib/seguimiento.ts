@@ -40,6 +40,59 @@ export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise
   return response.json();
 }
 
+/** Valores exactos que acepta la API (EstadosSeguimiento.Normalizar) */
+export const ESTADOS_SEGUIMIENTO_API = {
+  estable: 'Estables',
+  observacion: 'En Observacion',
+  critico: 'Criticos',
+} as const;
+
+export type EstadoSeguimientoApi = (typeof ESTADOS_SEGUIMIENTO_API)[keyof typeof ESTADOS_SEGUIMIENTO_API];
+
+export interface CrearSeguimientoPayload {
+  /** FK a tabla aprendiz_ficha (AprFicCodigo), no al código del aprendiz solo */
+  segAprendizFk: number;
+  segPsicologoFk: number;
+  segFechaSeguimiento: string;
+  segFechaFin?: string | null;
+  segAreaRemitido?: string | null;
+  segTrimestreActual: number;
+  segMotivo: string;
+  segDescripcion: string;
+  segRecomendaciones: string;
+  segEstadoSeguimiento: string;
+  segFirmaProfesional?: string | null;
+  segFirmaAprendiz?: string | null;
+}
+
+export async function crearSeguimiento(payload: CrearSeguimientoPayload): Promise<unknown> {
+  const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text || 'Error al crear el seguimiento';
+    try {
+      const j = JSON.parse(text) as { message?: string; title?: string };
+      if (j.message) message = j.message;
+    } catch {
+      /* usar texto plano */
+    }
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+/** GET api/SeguimientoAprendiz/estados → [{ valor: string }, ...] */
+export async function getEstadosSeguimientoCatalogo(): Promise<string[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz/estados`);
+  if (!response.ok) return Object.values(ESTADOS_SEGUIMIENTO_API);
+  const data = (await response.json()) as { valor?: string; Valor?: string }[];
+  if (!Array.isArray(data)) return Object.values(ESTADOS_SEGUIMIENTO_API);
+  return data.map((x) => x.valor ?? x.Valor ?? '').filter(Boolean);
+}
+
 export interface TendenciaEstadoItem {
   mes: string;
   estables: number;

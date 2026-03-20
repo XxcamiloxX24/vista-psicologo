@@ -1,0 +1,14 @@
+{
+  "segAprendizFk": 123,
+  "segPsicologoFk": 5,
+  "segFechaSeguimiento": "2026-03-19T15:30:00.000Z",
+  "segFechaFin": null,
+  "segAreaRemitido": "Bienestar al aprendiz",
+  "segTrimestreActual": 1,
+  "segMotivo": "Acompañamiento por estrés académico",
+  "segDescripcion": "Primera valoración; se observa buena disposición.",
+  "segRecomendaciones": "Técnicas de respiración y organización del tiempo",
+  "segEstadoSeguimiento": "Estables",
+  "segFirmaProfesional": "",
+  "segFirmaAprendiz": ""
+}

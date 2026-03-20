@@ -3,11 +3,23 @@ import { Calendar, Users, MessageSquare, Activity, AlertCircle, ArrowUpRight, Ar
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getTotalAprendices } from '../lib/aprendiz';
-import { getCitasHoy } from '../lib/citas';
+import { getCitasHoy, getComparacionSemanal } from '../lib/citas';
+import { getPsychologistId } from '../lib/auth';
+import { getPsychologistIdFromToken } from '../lib/psychologist';
 import { getTendenciaEstado } from '../lib/seguimiento';
 import type { TendenciaEstadoItem } from '../lib/seguimiento';
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+const EMPTY_WEEKLY_DATA = [
+  { day: 'Lun', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Mar', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Mié', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Jue', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Vie', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Sáb', semanaActual: 0, semanaAnterior: 0 },
+  { day: 'Dom', semanaActual: 0, semanaAnterior: 0 },
+];
 
 export function Dashboard() {
   const { displayName } = usePsychologist();
@@ -24,6 +36,7 @@ export function Dashboard() {
   const [rangoHasta, setRangoHasta] = useState<string>('');
   const [rangoError, setRangoError] = useState<string>('');
   const [followupTrendsData, setFollowupTrendsData] = useState<TendenciaEstadoItem[]>([]);
+  const [appointmentsData, setAppointmentsData] = useState<{ day: string; semanaActual: number; semanaAnterior: number }[]>([]);
 
   useEffect(() => {
     getTotalAprendices()
@@ -35,6 +48,14 @@ export function Dashboard() {
     getCitasHoy()
       .then(setCitasHoy)
       .catch(() => setCitasHoy(0));
+  }, []);
+
+  useEffect(() => {
+    const psicologoId = getPsychologistIdFromToken() ?? getPsychologistId();
+    if (!psicologoId) return;
+    getComparacionSemanal(psicologoId)
+      .then(setAppointmentsData)
+      .catch(() => setAppointmentsData([]));
   }, []);
 
   const toDateInputValue = (date: Date) => {
@@ -146,17 +167,6 @@ export function Dashboard() {
     }
   ];
 
-  // Data for appointments comparison chart
-  const appointmentsData = [
-    { day: 'Lun', semanaActual: 6, semanaAnterior: 8 },
-    { day: 'Mar', semanaActual: 8, semanaAnterior: 6 },
-    { day: 'Mié', semanaActual: 5, semanaAnterior: 7 },
-    { day: 'Jue', semanaActual: 9, semanaAnterior: 5 },
-    { day: 'Vie', semanaActual: 7, semanaAnterior: 9 },
-    { day: 'Sáb', semanaActual: 4, semanaAnterior: 3 },
-    { day: 'Dom', semanaActual: 2, semanaAnterior: 2 }
-  ];
-
   // Data for monthly comparison
   const monthlyData = [
     { mes: 'Ago', citas: 145, seguimientos: 18, mensajes: 320 },
@@ -259,7 +269,7 @@ export function Dashboard() {
             <p className="text-sm text-slate-500" style={isDark ? { color: '#e2e8f0' } : undefined}>Comparación con semana anterior</p>
           </div>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={appointmentsData}>
+            <BarChart data={appointmentsData.length > 0 ? appointmentsData : EMPTY_WEEKLY_DATA}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
               <XAxis dataKey="day" stroke={chartStroke} />
               <YAxis stroke={chartStroke} />

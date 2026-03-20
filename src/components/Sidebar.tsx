@@ -5,7 +5,16 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
-type Section = 'dashboard' | 'appointments' | 'messages' | 'followups' | 'students' | 'about' | 'settings' | 'profile-edit';
+type Section =
+  | 'dashboard'
+  | 'appointments'
+  | 'messages'
+  | 'followups'
+  | 'followups-create'
+  | 'students'
+  | 'about'
+  | 'settings'
+  | 'profile-edit';
 
 interface SidebarProps {
   activeSection: Section;
@@ -53,7 +62,9 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
         <nav className="flex-1 p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeSection === item.id;
+            const isActive =
+              activeSection === item.id ||
+              (item.id === 'followups' && activeSection === 'followups-create');
             
             return (
               <button

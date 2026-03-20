@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, X, Filter, LayoutGrid, Table2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, AlertCircle, TrendingUp, TrendingDown, Minus, Plus, Filter, LayoutGrid, Table2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { StudentProfile } from './StudentProfile.tsx';
 import { FollowupsTable } from './FollowupsTable';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { listarSeguimientos, type SeguimientoListarResult } from '../lib/seguimiento';
 
@@ -51,9 +48,16 @@ function seguimientoToStudent(r: SeguimientoListarResult): Student {
 
 interface FollowupsProps {
   targetStudentId?: string | null;
+  /** Al incrementar (tras crear seguimiento), se vuelven a cargar cards/tabla */
+  listRefreshKey?: number;
+  onOpenCreateManual?: () => void;
 }
 
-export function Followups({ targetStudentId }: FollowupsProps) {
+export function Followups({
+  targetStudentId,
+  listRefreshKey: parentListRefreshKey = 0,
+  onOpenCreateManual,
+}: FollowupsProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
@@ -64,10 +68,10 @@ export function Followups({ targetStudentId }: FollowupsProps) {
       if (!Number.isNaN(id)) queueMicrotask(() => setSelectedStudent(id));
     }
   }, [targetStudentId]);
+
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'name' | 'email' | 'id' | 'program' | 'ficha'>('all');
-  const [showNewFollowupModal, setShowNewFollowupModal] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const [tableData, setTableData] = useState<SeguimientoListarResult[]>([]);
@@ -83,24 +87,6 @@ export function Followups({ targetStudentId }: FollowupsProps) {
   const [cardsTotalPages, setCardsTotalPages] = useState(0);
   const [cardsTotalRegistros, setCardsTotalRegistros] = useState(0);
   const [cardsLoading, setCardsLoading] = useState(true);
-  /** Tras crear seguimiento o acciones que requieran refrescar listas */
-  const [listRefreshKey, setListRefreshKey] = useState(0);
-
-  const [newFollowup, setNewFollowup] = useState({
-    studentId: '',
-    studentName: '',
-    email: '',
-    ficha: '',
-    program: '',
-    status: 'stable' as 'stable' | 'observation' | 'critical',
-    initialNotes: ''
-  });
-
-  const availableStudents = [
-    { id: '1001234573', name: 'Sofia Ramírez Torres', email: 'sofia.ramirez@sena.edu.co', ficha: '2589640', program: 'Enfermería' },
-    { id: '1001234574', name: 'Diego Hernández Silva', email: 'diego.hernandez@sena.edu.co', ficha: '2589641', program: 'Mecatrónica' }
-  ];
-
   useEffect(() => {
     if (viewMode !== 'table') return;
     let cancelled = false;
@@ -120,7 +106,7 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         if (!cancelled) setTableLoading(false);
       });
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [viewMode, tablePage, tablePageSize, listRefreshKey]);
+  }, [viewMode, tablePage, tablePageSize, parentListRefreshKey]);
 
   useEffect(() => {
     if (viewMode !== 'cards') return;
@@ -144,28 +130,7 @@ export function Followups({ targetStudentId }: FollowupsProps) {
         if (!cancelled) setCardsLoading(false);
       });
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [viewMode, cardsPage, cardsPageSize, listRefreshKey]);
-
-  const handleCreateFollowup = () => {
-    if (!newFollowup.studentId || !newFollowup.status) {
-      alert('Por favor complete todos los campos obligatorios');
-      return;
-    }
-    // TODO: llamar API crear seguimiento; mientras tanto se refresca el listado
-    setShowNewFollowupModal(false);
-    setNewFollowup({
-      studentId: '',
-      studentName: '',
-      email: '',
-      ficha: '',
-      program: '',
-      status: 'stable',
-      initialNotes: ''
-    });
-    setCardsPage(1);
-    setTablePage(1);
-    setListRefreshKey((k) => k + 1);
-  };
+  }, [viewMode, cardsPage, cardsPageSize, parentListRefreshKey]);
 
   const students = cardsData.map(seguimientoToStudent);
 
@@ -307,14 +272,16 @@ export function Followups({ targetStudentId }: FollowupsProps) {
               Tabla
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowNewFollowupModal(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            Nuevo Seguimiento
-          </button>
+          {onOpenCreateManual && (
+            <button
+              type="button"
+              onClick={onOpenCreateManual}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              Nuevo Seguimiento
+            </button>
+          )}
           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-green-900/30 border-green-600/50' : 'bg-green-50 border-green-200'}`}>
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
             <span className={`text-sm ${isDark ? 'text-green-300' : 'text-green-700'}`}>Estable</span>
@@ -374,150 +341,6 @@ export function Followups({ targetStudentId }: FollowupsProps) {
           </div>
         </div>
       </div>
-
-      {/* New Followup Modal */}
-      {showNewFollowupModal && createPortal(
-        <div
-          className="fixed inset-0 flex items-center justify-center p-4"
-          style={{
-            zIndex: 2147483647,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(4px)',
-          }}
-        >
-          <div
-            className={`relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${
-              isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white border border-slate-200'
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 z-10 rounded-t-2xl bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-white">Crear Nuevo Seguimiento</h2>
-              <button
-                type="button"
-                onClick={() => setShowNewFollowupModal(false)}
-                className="rounded-lg p-2 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="studentId">Seleccionar Aprendiz *</Label>
-                <Select
-                  value={newFollowup.studentId}
-                  onValueChange={(value) => {
-                    const student = availableStudents.find(s => s.id === value);
-                    if (student) {
-                      setNewFollowup({
-                        ...newFollowup,
-                        studentId: value,
-                        studentName: student.name,
-                        email: student.email,
-                        ficha: student.ficha,
-                        program: student.program
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-purple-500/50 ${
-                      isDark ? 'border-slate-600 bg-slate-700 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <SelectValue placeholder="Seleccione un aprendiz" />
-                  </SelectTrigger>
-                  <SelectContent
-                    className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
-                      isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
-                    }`}
-                    style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 }}
-                  >
-                    {availableStudents.map(student => (
-                      <SelectItem key={student.id} value={student.id} hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>
-                        {student.name} - Ficha: {student.ficha}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {newFollowup.studentId && (
-                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-2">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Correo</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{newFollowup.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Ficha</p>
-                      <p className="text-sm text-slate-800 dark:text-slate-200">{newFollowup.ficha}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Programa</p>
-                    <p className="text-sm text-slate-800 dark:text-slate-200">{newFollowup.program}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Estado Inicial *</Label>
-                <Select value={newFollowup.status} onValueChange={(v) => setNewFollowup({ ...newFollowup, status: v as 'stable' | 'observation' | 'critical' })}>
-                  <SelectTrigger
-                    className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-purple-500/50 ${
-                      isDark ? 'border-slate-600 bg-slate-700 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent
-                    className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
-                      isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
-                    }`}
-                    style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)', zIndex: 2147483648 }}
-                  >
-                    <SelectItem value="stable" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Estable</SelectItem>
-                    <SelectItem value="observation" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>En Observación</SelectItem>
-                    <SelectItem value="critical" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Crítico</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="initialNotes">Notas Iniciales</Label>
-                <Textarea
-                  id="initialNotes"
-                  value={newFollowup.initialNotes}
-                  onChange={(e) => setNewFollowup({ ...newFollowup, initialNotes: e.target.value })}
-                  placeholder="Escriba observaciones iniciales sobre el aprendiz..."
-                  rows={4}
-                  className="resize-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowNewFollowupModal(false)}
-                  className="flex-1 px-6 py-3 rounded-2xl border border-purple-200/50 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateFollowup}
-                  className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all"
-                >
-                  Crear Seguimiento
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Cards: mismos datos que la API de la tabla (mis-seguimientos), paginado */}
       {viewMode === 'cards' && (

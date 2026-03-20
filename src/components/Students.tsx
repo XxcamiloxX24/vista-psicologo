@@ -18,13 +18,41 @@ interface Student {
   phone: string;
   hasFollowup: boolean;
   seguimientoSegCodigo?: number;
+  /** Codigo de la fila AprendizFicha (API buscar → codigo). Obligatorio para crear seguimiento. */
+  aprendizFichaCodigo?: number;
 }
 
 interface StudentsProps {
   onViewFollowup?: (studentId: string) => void;
+  /** Ir a Seguimientos con formulario de alta y aprendiz preseleccionado */
+  onNavigateCreateSeguimiento?: (payload: {
+    /** PK de aprendiz_ficha (AprFicCodigo) — es lo que espera SegAprendizFk en la API */
+    aprendizFichaCodigo: number;
+    name: string;
+    email: string;
+    program: string;
+    ficha: string;
+  }) => void;
 }
 
-export function Students({ onViewFollowup }: StudentsProps) {
+function buildSeguimientoPayload(student: Student): {
+  aprendizFichaCodigo: number;
+  name: string;
+  email: string;
+  program: string;
+  ficha: string;
+} | null {
+  if (typeof student.aprendizFichaCodigo !== 'number' || student.aprendizFichaCodigo <= 0) return null;
+  return {
+    aprendizFichaCodigo: student.aprendizFichaCodigo,
+    name: student.name,
+    email: student.email,
+    program: student.program,
+    ficha: student.ficha,
+  };
+}
+
+export function Students({ onViewFollowup, onNavigateCreateSeguimiento }: StudentsProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   type StudentsView = 'fichas' | 'aprendices';
@@ -39,6 +67,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'name' | 'email' | 'id' | 'program' | 'faculty'>('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [seguimientoConfirmStudent, setSeguimientoConfirmStudent] = useState<Student | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [students, setStudents] = useState<Student[]>([
     {
@@ -265,7 +294,16 @@ export function Students({ onViewFollowup }: StudentsProps) {
       r.Ficha?.FicCodigo ??
       '';
 
-    // Para match con mis-seguimientos, usamos SIEMPRE `aprendiz.codigo`.
+    /** PK aprendiz_ficha — SegAprendizFk en POST seguimiento */
+    const aprendizFichaCodigoRaw = r.codigo ?? r.Codigo;
+    const aprendizFichaCodigo =
+      typeof aprendizFichaCodigoRaw === 'number' && !Number.isNaN(aprendizFichaCodigoRaw)
+        ? aprendizFichaCodigoRaw
+        : aprendizFichaCodigoRaw != null
+          ? parseInt(String(aprendizFichaCodigoRaw), 10)
+          : NaN;
+
+    // Para match con mis-seguimientos y UI, usamos `aprendiz.codigo`.
     const idValue =
       r.aprendiz?.codigo ??
       r.Aprendiz?.Codigo ??
@@ -295,6 +333,7 @@ export function Students({ onViewFollowup }: StudentsProps) {
       phone,
       hasFollowup: false,
       seguimientoSegCodigo: undefined,
+      aprendizFichaCodigo: !Number.isNaN(aprendizFichaCodigo) && aprendizFichaCodigo > 0 ? aprendizFichaCodigo : undefined,
     };
   };
 
@@ -557,10 +596,8 @@ export function Students({ onViewFollowup }: StudentsProps) {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {fichaAprendices.map((student) => (
-                    <button
+                    <div
                       key={student.id}
-                      type="button"
-                      onClick={() => setSelectedStudent(student)}
                       className={`rounded-2xl p-6 border backdrop-blur-sm hover:shadow-lg transition-all text-left group ${
                         isDark
                           ? student.hasFollowup
@@ -571,61 +608,86 @@ export function Students({ onViewFollowup }: StudentsProps) {
                             : 'bg-white/90 border-purple-100/50'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 min-w-0 pr-2">
-                          <h3
-                            className={`mb-1 font-semibold transition-colors ${
-                              isDark ? 'text-slate-100 group-hover:text-purple-300' : 'text-slate-800 group-hover:text-purple-700'
-                            }`}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedStudent(student)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedStudent(student);
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <h3
+                              className={`mb-1 font-semibold transition-colors ${
+                                isDark ? 'text-slate-100 group-hover:text-purple-300' : 'text-slate-800 group-hover:text-purple-700'
+                              }`}
+                            >
+                              {student.name}
+                            </h3>
+                            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ID: {student.id}</p>
+                          </div>
+                          <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                            {student.name.split(' ').map((n) => n[0]).join('').substring(0, 2)}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <Mail className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
+                            <span className="truncate">{student.email}</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <BookOpen className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
+                            <span className="truncate">{student.program}</span>
+                          </div>
+                          <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <Building2 className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
+                            <span className="truncate">{student.faculty}</span>
+                          </div>
+                        </div>
+
+                        <div className={`flex items-center justify-between pt-4 border-t ${isDark ? 'border-slate-600/70' : 'border-purple-100/50'}`}>
+                          <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ficha: {student.ficha}</span>
+                          <span className={`text-xs font-medium group-hover:underline ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                            Ver perfil →
+                          </span>
+                        </div>
+
+                        {student.hasFollowup && (
+                          <div
+                            className="mt-3 px-3 py-1.5 rounded-lg text-center"
+                            style={{
+                              border: '1px solid #f59e0b',
+                              backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.1)',
+                            }}
                           >
-                            {student.name}
-                          </h3>
-                          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>ID: {student.id}</p>
-                        </div>
-                        <div className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
-                          {student.name.split(' ').map((n) => n[0]).join('').substring(0, 2)}
-                        </div>
+                            <p
+                              className="text-xs font-medium"
+                              style={{ color: isDark ? '#fbbf24' : '#b45309' }}
+                            >
+                              Con seguimiento activo
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-2 mb-4">
-                        <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                          <Mail className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
-                          <span className="truncate">{student.email}</span>
-                        </div>
-                        <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                          <BookOpen className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
-                          <span className="truncate">{student.program}</span>
-                        </div>
-                        <div className={`flex items-center gap-2 text-sm min-w-0 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                          <Building2 className={`w-4 h-4 shrink-0 ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
-                          <span className="truncate">{student.faculty}</span>
-                        </div>
-                      </div>
-
-                      <div className={`flex items-center justify-between pt-4 border-t ${isDark ? 'border-slate-600/70' : 'border-purple-100/50'}`}>
-                        <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Ficha: {student.ficha}</span>
-                        <span className={`text-xs font-medium group-hover:underline ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
-                          Ver perfil →
-                        </span>
-                      </div>
-
-                      {student.hasFollowup && (
-                        <div
-                          className="mt-3 px-3 py-1.5 rounded-lg text-center"
-                          style={{
-                            border: '1px solid #f59e0b',
-                            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.1)',
-                          }}
-                        >
-                          <p
-                            className="text-xs font-medium"
-                            style={{ color: isDark ? '#fbbf24' : '#b45309' }}
+                      {!student.hasFollowup && onNavigateCreateSeguimiento && (
+                        <div className={`mt-3 pt-3 border-t ${isDark ? 'border-slate-600/70' : 'border-purple-100/50'}`}>
+                          <button
+                            type="button"
+                            onClick={() => setSeguimientoConfirmStudent(student)}
+                            className="w-full min-h-[44px] rounded-xl px-4 py-2.5 text-sm font-medium bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-md transition-all"
                           >
-                            Con seguimiento activo
-                          </p>
+                            Iniciar seguimiento
+                          </button>
                         </div>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -766,18 +828,99 @@ export function Students({ onViewFollowup }: StudentsProps) {
                 )}
 
                 {!selectedStudent.hasFollowup && (
-                  <div
-                    className="rounded-lg p-4 text-center border"
-                    style={{
-                      backgroundColor: isDark ? 'rgba(161,140,0,0.1)' : '#fefce8',
-                      borderColor: isDark ? 'rgba(161,140,0,0.3)' : '#fde68a',
-                    }}
-                  >
-                    <p className="text-sm" style={{ color: isDark ? '#fcd34d' : '#92400e' }}>
-                      Este aprendiz aún no tiene seguimiento asignado
-                    </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
+                    <div
+                      className="flex flex-1 min-h-[52px] items-center justify-center rounded-lg border px-3 py-3 text-center"
+                      style={{
+                        backgroundColor: isDark ? 'rgba(161,140,0,0.1)' : '#fefce8',
+                        borderColor: isDark ? 'rgba(161,140,0,0.3)' : '#fde68a',
+                      }}
+                    >
+                      <p className="text-sm leading-snug" style={{ color: isDark ? '#fcd34d' : '#92400e' }}>
+                        Este aprendiz aún no tiene seguimiento asignado
+                      </p>
+                    </div>
+                    {onNavigateCreateSeguimiento && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSeguimientoConfirmStudent(selectedStudent);
+                          setSelectedStudent(null);
+                        }}
+                        className="shrink-0 min-h-[52px] rounded-lg px-4 py-3 text-sm font-medium whitespace-nowrap bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:opacity-95 transition-opacity"
+                      >
+                        Crear seguimiento
+                      </button>
+                    )}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Confirmar crear seguimiento (desde perfil o tarjeta) */}
+      {seguimientoConfirmStudent &&
+        onNavigateCreateSeguimiento &&
+        createPortal(
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{
+              zIndex: 2147483648,
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(6px)',
+            }}
+            onClick={() => setSeguimientoConfirmStudent(null)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+              style={{
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                border: isDark ? '1px solid rgba(100,116,139,0.4)' : '1px solid rgba(216,180,254,0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4">
+                <h2 className="text-lg font-semibold text-white">Confirmar seguimiento</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                  ¿Deseas iniciar un seguimiento para{' '}
+                  <span className="font-semibold">{seguimientoConfirmStudent.name}</span>? Serás llevado a la página de
+                  Seguimientos para completar el formulario.
+                </p>
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSeguimientoConfirmStudent(null)}
+                    className={`flex-1 min-h-[48px] rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
+                      isDark
+                        ? 'border-slate-500 text-slate-200 hover:bg-slate-700/80'
+                        : 'border-purple-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const payload = buildSeguimientoPayload(seguimientoConfirmStudent);
+                      if (!payload) {
+                        alert(
+                          'No se pudo obtener el vínculo aprendiz–ficha (AprFicCodigo). Vuelve a cargar la lista o contacta soporte.',
+                        );
+                        return;
+                      }
+                      onNavigateCreateSeguimiento(payload);
+                      setSeguimientoConfirmStudent(null);
+                      setSelectedStudent(null);
+                    }}
+                    className="flex-1 min-h-[48px] rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 text-sm font-medium text-white hover:shadow-lg transition-all"
+                  >
+                    Sí, continuar
+                  </button>
+                </div>
               </div>
             </div>
           </div>,
