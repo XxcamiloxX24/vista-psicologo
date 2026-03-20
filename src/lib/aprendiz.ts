@@ -30,24 +30,34 @@ export type AprendizBusquedaRaw = {
   [k: string]: unknown;
 };
 
+function getStr(obj: Record<string, unknown> | null | undefined, ...keys: string[]): string {
+  if (!obj) return '';
+  for (const k of keys) {
+    const v = obj[k];
+    if (v != null && typeof v === 'string') return v;
+  }
+  return '';
+}
+
 export function normalizarAprendizBusqueda(raw: AprendizBusquedaRaw) {
-  const nombres = raw.nombres ?? raw.Nombres;
-  const apellidos = raw.apellidos ?? raw.Apellidos;
-  const contacto = raw.contacto ?? raw.Contacto;
-  const primerNombre = nombres?.primerNombre ?? nombres?.PrimerNombre ?? '';
-  const segundoNombre = nombres?.segundoNombre ?? nombres?.SegundoNombre ?? '';
-  const primerApellido = apellidos?.primerApellido ?? apellidos?.PrimerApellido ?? '';
-  const segundoApellido = apellidos?.segundoApellido ?? apellidos?.SegundoApellido ?? '';
+  const nombres = (raw.nombres ?? raw.Nombres) as Record<string, unknown> | null | undefined;
+  const apellidos = (raw.apellidos ?? raw.Apellidos) as Record<string, unknown> | null | undefined;
+  const contacto = (raw.contacto ?? raw.Contacto) as Record<string, unknown> | null | undefined;
+  const primerNombre = getStr(nombres, 'primerNombre', 'PrimerNombre');
+  const segundoNombre = getStr(nombres, 'segundoNombre', 'SegundoNombre');
+  const primerApellido = getStr(apellidos, 'primerApellido', 'PrimerApellido');
+  const segundoApellido = getStr(apellidos, 'segundoApellido', 'SegundoApellido');
   const fullName = [primerNombre, segundoNombre, primerApellido, segundoApellido]
     .filter(Boolean)
     .join(' ');
+  const email =
+    getStr(contacto, 'correoInstitucional', 'CorreoInstitucional') ||
+    getStr(contacto, 'correoPersonal', 'CorreoPersonal');
   return {
     codigo: raw.codigo ?? raw.Codigo ?? 0,
     nroDocumento: String(raw.nroDocumento ?? raw.NroDocumento ?? ''),
     fullName,
-    email:
-      String(contacto?.correoInstitucional ?? contacto?.CorreoInstitucional ?? '') ||
-      String(contacto?.correoPersonal ?? contacto?.CorreoPersonal ?? ''),
+    email,
   };
 }
 
