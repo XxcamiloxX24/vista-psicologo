@@ -144,7 +144,7 @@ function citaToEvent(c: CitaApi): { id: string; title: string; start: Date; end:
     backgroundColor: colors.bg,
     borderColor: colors.border,
     extendedProps: { cita: c },
-  };
+  } as { id: string; title: string; start: Date; end: Date; backgroundColor: string; borderColor: string; extendedProps: { cita: CitaApi } };
 }
 
 function citaToDetail(c: CitaApi): AppointmentDetail {

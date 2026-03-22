@@ -105,7 +105,8 @@ export function CitasPendientes({ onSuccess }: CitasPendientesProps) {
     setFormFecha(hoy.toISOString().split('T')[0]);
     setFormHoraInicio('09:00');
     setFormHoraFin('10:00');
-    setFormTipo((c as Record<string, unknown>).citTipoCita ?? 'presencial');
+    const tipo = getCitaField<string>(c as unknown as Record<string, unknown>, 'citTipoCita', 'CitTipoCita');
+    setFormTipo(typeof tipo === 'string' ? tipo : 'presencial');
     setFormError(null);
     setModalCita(c);
   };
