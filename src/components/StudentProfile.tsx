@@ -1,7 +1,25 @@
-import { useState } from 'react';
-import { ArrowLeft, Calendar, BarChart3, ClipboardList, Bell, Activity } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowLeft, Calendar, BarChart3, ClipboardList, ListChecks, Pencil, Trash2, Plus, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  listarPorSeguimiento,
+  crear,
+  actualizar,
+  eliminar,
+  getEstados,
+  type RecomendacionItem,
+  type CrearRecomendacionPayload,
+} from '../lib/recomendacion';
+import { Button } from './ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+/* Estilos explícitos para modales portaled (evitan contraste bajo en dark) */
+const inputBase = 'w-full px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-colors';
+const inputLight = 'border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500';
+const inputDark = 'border border-slate-500 bg-slate-800 text-white placeholder:text-slate-400';
+const textareaBase = 'w-full px-4 py-3 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-colors';
 
 interface Student {
   id: number;
@@ -10,6 +28,15 @@ interface Student {
   email: string;
   status: 'stable' | 'observation' | 'critical';
   program: string;
+  phone?: string;
+  area?: string;
+  centro?: string;
+  jornada?: string;
+  nivelFormacion?: string;
+  modalidad?: string;
+  formaModalidad?: string;
+  /** Estado de formación de la ficha: en ejecucion, cancelada, terminada, etc. */
+  estadoFormacion?: string;
 }
 
 interface StudentProfileProps {
@@ -17,20 +44,46 @@ interface StudentProfileProps {
   onBack: () => void;
 }
 
-type Tab = 'calendar' | 'charts' | 'test' | 'reminders' | 'activities';
+type Tab = 'calendar' | 'charts' | 'test' | 'recommendations';
 
 export function StudentProfile({ student, onBack }: StudentProfileProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [activeTab, setActiveTab] = useState<Tab>('calendar');
 
+  const [recomendaciones, setRecomendaciones] = useState<RecomendacionItem[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [errorRecs, setErrorRecs] = useState<string | null>(null);
+  const [modalCrearOpen, setModalCrearOpen] = useState(false);
+  const [modalEditarOpen, setModalEditarOpen] = useState<RecomendacionItem | null>(null);
+  const [modalEliminarOpen, setModalEliminarOpen] = useState<RecomendacionItem | null>(null);
+
   const tabs = [
     { id: 'calendar' as Tab, label: 'Calendario', icon: Calendar },
     { id: 'charts' as Tab, label: 'Gráficos', icon: BarChart3 },
     { id: 'test' as Tab, label: 'Test', icon: ClipboardList },
-    { id: 'reminders' as Tab, label: 'Recordatorios', icon: Bell },
-    { id: 'activities' as Tab, label: 'Actividades', icon: Activity },
+    { id: 'recommendations' as Tab, label: 'Recomendaciones', icon: ListChecks },
   ];
+
+  const cargarRecomendaciones = useCallback(async () => {
+    if (student.id == null) return;
+    setLoadingRecs(true);
+    setErrorRecs(null);
+    try {
+      const data = await listarPorSeguimiento(student.id);
+      setRecomendaciones(data);
+    } catch (e) {
+      setErrorRecs(e instanceof Error ? e.message : 'Error al cargar recomendaciones.');
+    } finally {
+      setLoadingRecs(false);
+    }
+  }, [student.id]);
+
+  useEffect(() => {
+    if (activeTab === 'recommendations') {
+      cargarRecomendaciones();
+    }
+  }, [activeTab, cargarRecomendaciones]);
 
   const emotionalData = [
     { date: '2025-12-01', emotion: 'positive', label: 'Positiva' },
@@ -67,6 +120,51 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
   const COLORS = ['#22c55e', '#eab308', '#f97316'];
 
+  const getEstadoFormacionLabel = (estado?: string): string => {
+    if (!estado?.trim()) return '';
+    const e = estado.toLowerCase().trim();
+    if (e.includes('ejecucion') || e.includes('en ejecución')) return 'En Formación';
+    if (e.includes('cancelada')) return 'Cancelada';
+    if (e.includes('terminada por fecha')) return 'Terminada por fecha';
+    if (e.includes('terminada')) return 'Terminada';
+    return estado;
+  };
+
+  const getEstadoFormacionStyle = (estado?: string): { className?: string; style?: React.CSSProperties } => {
+    if (!estado?.trim()) return {};
+    const e = estado.toLowerCase().trim();
+    if (e.includes('ejecucion') || e.includes('en ejecución'))
+      return isDark ? { style: { backgroundColor: '#059669', color: '#fff' } } : { className: 'bg-green-100 text-green-700' };
+    if (e.includes('cancelada'))
+      return isDark ? { style: { backgroundColor: '#475569', color: '#e2e8f0' } } : { className: 'bg-slate-100 text-slate-700' };
+    if (e.includes('terminada'))
+      return isDark ? { style: { backgroundColor: '#2563eb', color: '#fff' } } : { className: 'bg-blue-100 text-blue-700' };
+    return isDark ? { style: { backgroundColor: '#475569', color: '#e2e8f0' } } : { className: 'bg-slate-100 text-slate-700' };
+  };
+
+  const formatearFecha = (iso?: string | null): string => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return iso;
+    }
+  };
+
+  const getEstadoBadgeStyle = (estado?: string | null): { className?: string; style?: React.CSSProperties } => {
+    const e = (estado ?? '').toLowerCase();
+    if (e.includes('completada'))
+      return isDark ? { style: { backgroundColor: '#059669', color: '#fff' } } : { className: 'bg-green-100 text-green-700' };
+    if (e.includes('progreso'))
+      return isDark ? { style: { backgroundColor: '#d97706', color: '#fff' } } : { className: 'bg-amber-100 text-amber-700' };
+    return isDark ? { style: { backgroundColor: '#475569', color: '#e2e8f0' } } : { className: 'bg-slate-100 text-slate-700' };
+  };
+
   const getEmotionColor = (emotion: string) => {
     const colors = {
       positive: 'bg-green-500',
@@ -98,16 +196,42 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl mx-auto mb-4 shadow-lg">
                 {student.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
-              <h2 className={`mb-1 ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.name}</h2>
-              <span className={`inline-block px-3 py-1 rounded-full text-xs ${
-                student.status === 'stable' ? 'bg-green-100 text-green-700' :
-                student.status === 'observation' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                {student.status === 'stable' ? 'Estable' :
-                 student.status === 'observation' ? 'En Observación' :
-                 'Crítico'}
-              </span>
+              <h2 className={`mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                    !isDark
+                      ? student.status === 'stable'
+                        ? 'bg-green-100 text-green-700'
+                        : student.status === 'observation'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                      : ''
+                  }`}
+                  style={
+                    isDark
+                      ? student.status === 'stable'
+                        ? { backgroundColor: '#16a34a', color: '#fff' }
+                        : student.status === 'observation'
+                        ? { backgroundColor: '#f59e0b', color: '#0f172a' }
+                        : { backgroundColor: '#dc2626', color: '#fff' }
+                      : undefined
+                  }
+                >
+                  {student.status === 'stable' ? 'Estable' :
+                   student.status === 'observation' ? 'En Observación' :
+                   'Crítico'}
+                </span>
+                {student.estadoFormacion &&
+                  getEstadoFormacionLabel(student.estadoFormacion) && (
+                    <span
+                      className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getEstadoFormacionStyle(student.estadoFormacion).className ?? ''}`}
+                      style={getEstadoFormacionStyle(student.estadoFormacion).style}
+                    >
+                      {getEstadoFormacionLabel(student.estadoFormacion)}
+                    </span>
+                  )}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -119,17 +243,43 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                 <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Programa</p>
                 <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.program}</p>
               </div>
+              {student.area && (
+                <div>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Área / Facultad</p>
+                  <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.area}</p>
+                </div>
+              )}
+              {student.nivelFormacion && (
+                <div>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Nivel de formación</p>
+                  <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.nivelFormacion}</p>
+                </div>
+              )}
+              {student.centro && (
+                <div>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Centro</p>
+                  <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.centro}</p>
+                </div>
+              )}
+              {student.jornada && (
+                <div>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Jornada</p>
+                  <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.jornada}</p>
+                </div>
+              )}
+              {student.modalidad && (
+                <div>
+                  <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Modalidad</p>
+                  <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.modalidad}</p>
+                </div>
+              )}
               <div>
                 <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Correo</p>
-                <p className={`text-sm break-all ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.email}</p>
+                <p className={`text-sm break-all ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.email || '—'}</p>
               </div>
               <div>
                 <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Teléfono</p>
-                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>+57 300 123 4567</p>
-              </div>
-              <div>
-                <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Facultad</p>
-                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>Tecnología e Informática</p>
+                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{student.phone || '—'}</p>
               </div>
             </div>
           </div>
@@ -355,73 +505,569 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
                 </div>
               )}
 
-              {activeTab === 'reminders' && (
+              {activeTab === 'recommendations' && (
                 <div>
-                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Recordatorios y Retroalimentación</h3>
-                  <div className="space-y-3">
-                    <div className={`rounded-xl p-4 border-l-4 border-blue-500 ${isDark ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>28 Nov 2025</p>
-                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Continuar con técnicas de respiración aprendidas en sesión anterior.</p>
-                    </div>
-                    <div className={`rounded-xl p-4 border-l-4 border-green-500 ${isDark ? 'bg-green-900/30' : 'bg-green-50'}`}>
-                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>25 Nov 2025</p>
-                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Excelente progreso en manejo de ansiedad. Mantener rutina de ejercicio.</p>
-                    </div>
-                    <div className={`rounded-xl p-4 border-l-4 border-purple-500 ${isDark ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
-                      <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>20 Nov 2025</p>
-                      <p className={isDark ? 'text-white' : 'text-slate-800'}>Practicar mindfulness 10 minutos diarios antes de dormir.</p>
-                    </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>Recomendaciones</h3>
+                    <Button
+                      onClick={() => setModalCrearOpen(true)}
+                      variant="ghost"
+                      className={`flex items-center gap-2 ${
+                        isDark ? 'text-slate-300 hover:text-white hover:bg-slate-700/50' : 'text-slate-600 hover:text-purple-600 hover:bg-purple-50/50'
+                      }`}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nueva recomendación
+                    </Button>
                   </div>
-                </div>
-              )}
-
-              {activeTab === 'activities' && (
-                <div>
-                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Actividades Asignadas</h3>
-                  <div className="space-y-3">
-                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Diario de Emociones</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700'}`}>
-                          Completada
-                        </span>
-                      </div>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        Registrar emociones diarias durante 7 días
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 5 Dic 2025</p>
+                  {loadingRecs && (
+                    <div className="space-y-3 py-4">
+                      <div className={`animate-pulse rounded-xl w-full h-24 ${isDark ? 'bg-slate-700/50' : 'bg-slate-200'}`} />
+                      <div className={`animate-pulse rounded-xl w-full h-24 ${isDark ? 'bg-slate-700/50' : 'bg-slate-200'}`} />
+                      <div className={`animate-pulse rounded-xl w-full h-24 ${isDark ? 'bg-slate-700/50' : 'bg-slate-200'}`} />
                     </div>
-                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Ejercicios de Respiración</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-yellow-900/50 text-yellow-300' : 'bg-yellow-100 text-yellow-700'}`}>
-                          En Progreso
-                        </span>
-                      </div>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        Practicar técnica 4-7-8 dos veces al día
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 10 Dic 2025</p>
+                  )}
+                  {!loadingRecs && errorRecs && (
+                    <div className={`rounded-xl p-4 border ${isDark ? 'bg-red-900/30 border-red-700 text-red-200' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                      {errorRecs}
                     </div>
-                    <div className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-700/50 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200'}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className={isDark ? 'text-white' : 'text-slate-800'}>Lectura Recomendada</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs ${isDark ? 'bg-slate-600 text-slate-300' : 'bg-slate-100 text-slate-700'}`}>
-                          Pendiente
-                        </span>
-                      </div>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        Leer capítulo 3 de "Inteligencia Emocional"
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vencimiento: 15 Dic 2025</p>
+                  )}
+                  {!loadingRecs && !errorRecs && recomendaciones.length === 0 && (
+                    <div className={`rounded-xl p-8 text-center border ${isDark ? 'bg-slate-800/60 border-slate-600 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                      <p>No hay recomendaciones. Agregar una.</p>
                     </div>
-                  </div>
+                  )}
+                  {!loadingRecs && !errorRecs && recomendaciones.length > 0 && (
+                    <div className="space-y-3">
+                      {recomendaciones.map((rec) => {
+                        const badgeStyle = getEstadoBadgeStyle(rec.recEstado);
+                        return (
+                        <div
+                          key={rec.recCodigo}
+                          className={`rounded-xl p-4 border transition-all ${isDark ? 'bg-slate-800/70 border-slate-600 hover:border-slate-500' : 'bg-white border-purple-100/50 hover:border-purple-200 shadow-sm'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h4 className={`flex-1 min-w-0 ${isDark ? 'text-white' : 'text-slate-800'}`}>{rec.recTitulo}</h4>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${badgeStyle.className ?? ''}`}
+                                style={badgeStyle.style}
+                              >
+                                {rec.recEstado || 'Pendiente'}
+                              </span>
+                              <button
+                                onClick={() => setModalEditarOpen(rec)}
+                                className={`p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-600' : 'text-slate-500 hover:text-purple-600 hover:bg-purple-50'}`}
+                                title="Editar"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setModalEliminarOpen(rec)}
+                                className={`p-2 rounded-lg transition-colors ${isDark ? 'text-slate-400 hover:text-red-400 hover:bg-slate-600' : 'text-slate-500 hover:text-red-600 hover:bg-red-50'}`}
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          {rec.recDescripcion && (
+                            <p className={`text-sm mb-2 ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>{rec.recDescripcion}</p>
+                          )}
+                          {rec.recFechaVencimiento && (
+                            <p className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
+                              Finalizada: {formatearFecha(rec.recFechaVencimiento)}
+                            </p>
+                          )}
+                        </div>
+                      );})}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal Crear Recomendación */}
+      <ModalCrearRecomendacion
+        open={modalCrearOpen}
+        onOpenChange={setModalCrearOpen}
+        seguimientoId={student.id}
+        onSuccess={cargarRecomendaciones}
+        isDark={isDark}
+      />
+
+      {/* Modal Editar Recomendación */}
+      {modalEditarOpen && (
+        <ModalEditarRecomendacion
+          open={!!modalEditarOpen}
+          onOpenChange={(o) => !o && setModalEditarOpen(null)}
+          rec={modalEditarOpen}
+          onSuccess={() => {
+            cargarRecomendaciones();
+            setModalEditarOpen(null);
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Modal Eliminar Recomendación */}
+      {modalEliminarOpen && (
+        <ModalEliminarRecomendacion
+          open={!!modalEliminarOpen}
+          onOpenChange={(o) => !o && setModalEliminarOpen(null)}
+          rec={modalEliminarOpen}
+          onSuccess={() => {
+            cargarRecomendaciones();
+            setModalEliminarOpen(null);
+          }}
+          isDark={isDark}
+        />
+      )}
     </div>
   );
+}
+
+function ModalCrearRecomendacion({
+  open,
+  onOpenChange,
+  seguimientoId,
+  onSuccess,
+  isDark,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  seguimientoId: number;
+  onSuccess: () => void;
+  isDark: boolean;
+}) {
+  const [selectContainer, setSelectContainer] = useState<HTMLDivElement | null>(null);
+  const estadoSelectRef = useRef<HTMLDivElement>(null);
+  const [estadoSelectWidth, setEstadoSelectWidth] = useState(280);
+  const [titulo, setTitulo] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [estado, setEstado] = useState('Pendiente');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const el = estadoSelectRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (typeof w === 'number' && w > 0) setEstadoSelectWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!titulo.trim()) {
+      setError('El título es obligatorio.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const payload: CrearRecomendacionPayload = {
+        recSeguimientoFk: seguimientoId,
+        recTitulo: titulo.trim(),
+        recDescripcion: descripcion.trim() || null,
+        recEstado: estado,
+      };
+      await crear(payload);
+      setTitulo('');
+      setDescripcion('');
+      setEstado('Pendiente');
+      onOpenChange(false);
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al crear.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const modalContent = (
+    <div
+      ref={(el) => { if (el) setSelectContainer(el); }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 2147483647 }}
+      onClick={() => !loading && onOpenChange(false)}
+    >
+      <div
+        className={`relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${
+          isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white border border-slate-200'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header con gradiente */}
+        <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Nueva recomendación</h3>
+          <button
+            type="button"
+            onClick={() => !loading && onOpenChange(false)}
+            className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label htmlFor="rec-titulo" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Título <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="rec-titulo"
+              type="text"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              placeholder="Título de la recomendación"
+              className={`${inputBase} ${isDark ? inputDark : inputLight}`}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="rec-descripcion" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Descripción
+            </label>
+            <textarea
+              id="rec-descripcion"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Descripción opcional"
+              rows={3}
+              className={`${textareaBase} ${isDark ? inputDark : inputLight}`}
+            />
+          </div>
+          <div ref={estadoSelectRef} className="space-y-2">
+            <label htmlFor="rec-estado" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Estado
+            </label>
+            <Select value={estado} onValueChange={setEstado}>
+              <SelectTrigger
+                id="rec-estado"
+                className={`w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-purple-500/50 ${
+                  isDark ? 'border-slate-600 bg-slate-700 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent
+                container={selectContainer}
+                className={`z-[9999] rounded-xl shadow-lg ${
+                  isDark ? 'border-slate-500 text-white settings-select-dark' : 'border-slate-200 text-slate-900 select-light-dropdown'
+                }`}
+                style={isDark ? { backgroundColor: '#334155', width: estadoSelectWidth, minWidth: estadoSelectWidth } : { backgroundColor: '#fff', width: estadoSelectWidth, minWidth: estadoSelectWidth }}
+                position="popper"
+                sideOffset={4}
+              >
+                {getEstados().map((opt) => (
+                  <SelectItem
+                    key={opt}
+                    value={opt}
+                    hideIndicator
+                    className={isDark ? 'px-4 py-2.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}
+                  >
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {error && (
+            <p className="text-sm text-red-500 font-medium">{error}</p>
+          )}
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+              className={`flex-1 rounded-2xl border px-6 py-3 transition-all disabled:opacity-50 ${
+                isDark ? 'border-slate-600 text-slate-200 hover:bg-slate-700' : 'border-purple-200/50 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-medium text-white transition-all hover:shadow-lg disabled:opacity-60"
+            >
+              {loading ? 'Creando...' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+}
+
+function ModalEditarRecomendacion({
+  open,
+  onOpenChange,
+  rec,
+  onSuccess,
+  isDark,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  rec: RecomendacionItem;
+  onSuccess: () => void;
+  isDark: boolean;
+}) {
+  const [selectContainer, setSelectContainer] = useState<HTMLDivElement | null>(null);
+  const estadoSelectRef = useRef<HTMLDivElement>(null);
+  const [estadoSelectWidth, setEstadoSelectWidth] = useState(280);
+  const [titulo, setTitulo] = useState(rec.recTitulo);
+  const [descripcion, setDescripcion] = useState(rec.recDescripcion || '');
+  const [estado, setEstado] = useState(rec.recEstado || 'Pendiente');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTitulo(rec.recTitulo);
+    setDescripcion(rec.recDescripcion || '');
+    setEstado(rec.recEstado || 'Pendiente');
+  }, [rec]);
+
+  useEffect(() => {
+    const el = estadoSelectRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (typeof w === 'number' && w > 0) setEstadoSelectWidth(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!titulo.trim()) {
+      setError('El título es obligatorio.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await actualizar(rec.recCodigo, {
+        recTitulo: titulo.trim(),
+        recDescripcion: descripcion.trim() || null,
+        recEstado: estado,
+      });
+      onOpenChange(false);
+      onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al actualizar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const modalContent = (
+    <div
+      ref={(el) => { if (el) setSelectContainer(el); }}
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 2147483647 }}
+      onClick={() => !loading && onOpenChange(false)}
+    >
+      <div
+        className={`relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${
+          isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white border border-slate-200'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Editar recomendación</h3>
+          <button
+            type="button"
+            onClick={() => !loading && onOpenChange(false)}
+            className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <label htmlFor="edit-titulo" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Título <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="edit-titulo"
+              type="text"
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              placeholder="Título de la recomendación"
+              className={`${inputBase} ${isDark ? inputDark : inputLight}`}
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-descripcion" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Descripción
+            </label>
+            <textarea
+              id="edit-descripcion"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Descripción opcional"
+              rows={3}
+              className={`${textareaBase} ${isDark ? inputDark : inputLight}`}
+            />
+          </div>
+          <div ref={estadoSelectRef} className="space-y-2">
+            <label htmlFor="edit-estado" className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+              Estado
+            </label>
+            <Select value={estado} onValueChange={setEstado}>
+              <SelectTrigger
+                id="edit-estado"
+                className={`w-full rounded-xl border px-4 py-3 focus:ring-2 focus:ring-purple-500/50 ${
+                  isDark ? 'border-slate-600 bg-slate-700 text-white' : 'border-purple-200/50 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent
+                container={selectContainer}
+                className={`z-[9999] rounded-xl shadow-lg ${
+                  isDark ? 'border-slate-500 text-white settings-select-dark' : 'border-slate-200 text-slate-900 select-light-dropdown'
+                }`}
+                style={isDark ? { backgroundColor: '#334155', width: estadoSelectWidth, minWidth: estadoSelectWidth } : { backgroundColor: '#fff', width: estadoSelectWidth, minWidth: estadoSelectWidth }}
+                position="popper"
+                sideOffset={4}
+              >
+                {getEstados().map((opt) => (
+                  <SelectItem
+                    key={opt}
+                    value={opt}
+                    hideIndicator
+                    className={isDark ? 'px-4 py-2.5 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2.5 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}
+                  >
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {error && (
+            <p className="text-sm text-red-500 font-medium">{error}</p>
+          )}
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+              className={`flex-1 rounded-2xl border px-6 py-3 transition-all disabled:opacity-50 ${
+                isDark ? 'border-slate-600 text-slate-200 hover:bg-slate-700' : 'border-purple-200/50 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-medium text-white transition-all hover:shadow-lg disabled:opacity-60"
+            >
+              {loading ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+}
+
+function ModalEliminarRecomendacion({
+  open,
+  onOpenChange,
+  rec,
+  onSuccess,
+  isDark,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  rec: RecomendacionItem;
+  onSuccess: () => void;
+  isDark: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await eliminar(rec.recCodigo);
+      onOpenChange(false);
+      onSuccess();
+    } catch {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const modalContent = (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 2147483647 }}
+      onClick={() => !loading && onOpenChange(false)}
+    >
+      <div
+        className={`relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
+          isDark ? 'bg-slate-900 border border-slate-600' : 'bg-white border border-slate-200'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white">Eliminar recomendación</h3>
+          <button
+            type="button"
+            onClick={() => !loading && onOpenChange(false)}
+            className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6">
+          <p className={`text-sm mb-6 leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+            ¿Estás seguro de que deseas eliminar la recomendación &quot;<strong className={isDark ? 'text-slate-100' : 'text-slate-800'}>{rec.recTitulo}</strong>&quot;? Esta acción no se puede deshacer.
+          </p>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => !loading && onOpenChange(false)}
+              disabled={loading}
+              className={`flex-1 rounded-2xl border px-6 py-3 transition-all disabled:opacity-50 ${
+                isDark ? 'border-slate-600 text-slate-200 hover:bg-slate-700' : 'border-purple-200/50 text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={loading}
+              className="flex-1 rounded-2xl bg-red-600 px-6 py-3 font-medium text-white transition-all hover:bg-red-700 hover:shadow-lg disabled:opacity-60"
+            >
+              {loading ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
 }

@@ -6,6 +6,7 @@ import { Appointments } from "./components/Appointments";
 import { Messages } from "./components/Messages";
 import { Followups } from "./components/Followups";
 import { FollowupCreatePage, type FollowupCreateConfig } from "./components/FollowupCreatePage";
+import { CitaDetallePage, type CitaDetalleConfig } from "./components/CitaDetallePage";
 import { Students } from "./components/Students";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
@@ -29,6 +30,7 @@ import {
 type Section =
   | "dashboard"
   | "appointments"
+  | "cita-detalle"
   | "messages"
   | "followups"
   | "followups-create"
@@ -77,6 +79,8 @@ export default function App() {
   const [targetStudentId, setTargetStudentId] = useState<string | null>(null);
   /** Página crear seguimiento: manual o datos desde Fichas */
   const [followupCreateConfig, setFollowupCreateConfig] = useState<FollowupCreateConfig | null>(null);
+  /** Página detalle de cita (desde calendario) */
+  const [citaDetalleConfig, setCitaDetalleConfig] = useState<CitaDetalleConfig | null>(null);
   /** Incrementar para forzar recarga de listas en Seguimientos tras crear */
   const [followupsListKey, setFollowupsListKey] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -179,7 +183,31 @@ export default function App() {
       case "dashboard":
         return <Dashboard />;
       case "appointments":
-        return <Appointments />;
+        return (
+          <Appointments
+            onViewCitaDetalle={(cita) => {
+              setCitaDetalleConfig({ cita });
+              setActiveSection("cita-detalle");
+            }}
+          />
+        );
+      case "cita-detalle":
+        return citaDetalleConfig ? (
+          <CitaDetallePage
+            config={citaDetalleConfig}
+            onBack={() => {
+              setCitaDetalleConfig(null);
+              setActiveSection("appointments");
+            }}
+          />
+        ) : (
+          <Appointments
+            onViewCitaDetalle={(cita) => {
+              setCitaDetalleConfig({ cita });
+              setActiveSection("cita-detalle");
+            }}
+          />
+        );
       case "messages":
         return <Messages />;
       case "followups":
@@ -265,9 +293,10 @@ export default function App() {
         <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative">
         {logoutOverlay}
         <Sidebar
-          activeSection={activeSection}
+          activeSection={activeSection === "cita-detalle" ? "appointments" : activeSection}
           onSectionChange={(section) => {
             if (section !== "followups-create") setFollowupCreateConfig(null);
+            if (section === "appointments") setCitaDetalleConfig(null);
             setActiveSection(section);
           }}
           onLogout={handleLogout}

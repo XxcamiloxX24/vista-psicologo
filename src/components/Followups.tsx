@@ -5,7 +5,7 @@ import { StudentProfile } from './StudentProfile.tsx';
 import { FollowupsTable } from './FollowupsTable';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { listarSeguimientos, type SeguimientoListarResult } from '../lib/seguimiento';
+import { listarSeguimientos, getSeguimientoPorId, type SeguimientoListarResult } from '../lib/seguimiento';
 
 interface Student {
   id: number;
@@ -16,6 +16,15 @@ interface Student {
   program: string;
   /** Texto del estado desde la API (misma fila que la tabla) */
   estadoTexto?: string;
+  phone?: string;
+  area?: string;
+  centro?: string;
+  jornada?: string;
+  nivelFormacion?: string;
+  modalidad?: string;
+  formaModalidad?: string;
+  /** Estado de formación de la ficha: en ejecucion, cancelada, terminada, etc. */
+  estadoFormacion?: string;
 }
 
 function mapEstadoToStatus(estado: string): 'stable' | 'observation' | 'critical' {
@@ -26,23 +35,81 @@ function mapEstadoToStatus(estado: string): 'stable' | 'observation' | 'critical
   return 'observation';
 }
 
+function getVal<T>(o: Record<string, unknown> | null | undefined, ...keys: string[]): T | undefined {
+  if (!o) return undefined;
+  for (const k of keys) {
+    const v = o[k];
+    if (v != null && v !== '') return v as T;
+  }
+  return undefined;
+}
+
+function getStr(o: Record<string, unknown> | null | undefined, ...keys: string[]): string {
+  const v = getVal<string | number>(o, ...keys);
+  if (v == null) return '';
+  return String(v).trim();
+}
+
+function toRecord(x: unknown): Record<string, unknown> | undefined {
+  if (x != null && typeof x === 'object' && !Array.isArray(x)) return x as Record<string, unknown>;
+  return undefined;
+}
+
 function seguimientoToStudent(r: SeguimientoListarResult): Student {
-  const n = r.aprendiz?.aprendiz?.nombres;
-  const a = r.aprendiz?.aprendiz?.apellidos;
+  const root = toRecord(r.aprendiz) ?? toRecord((r as unknown as Record<string, unknown>).aprendiz) ?? toRecord((r as unknown as Record<string, unknown>).Aprendiz);
+  const apr = toRecord(root?.aprendiz) ?? toRecord(root?.Aprendiz);
+  const n = toRecord(apr?.nombres) ?? toRecord(apr?.Nombres);
+  const a = toRecord(apr?.apellidos) ?? toRecord(apr?.Apellidos);
+  const contacto = toRecord(apr?.contacto) ?? toRecord(apr?.Contacto);
+
   const parts: string[] = [];
-  if (n?.primerNombre) parts.push(n.primerNombre);
-  if (n?.segundoNombre) parts.push(n.segundoNombre);
-  if (a?.primerApellido) parts.push(a.primerApellido);
-  if (a?.segundoApellido) parts.push(a.segundoApellido);
-  const name = parts.filter(Boolean).join(' ') || '—';
+  const p1 = getVal<string>(n, 'primerNombre', 'PrimerNombre');
+  const p2 = getVal<string>(n, 'segundoNombre', 'SegundoNombre');
+  const p3 = getVal<string>(a, 'primerApellido', 'PrimerApellido');
+  const p4 = getVal<string>(a, 'segundoApellido', 'SegundoApellido');
+  if (p1) parts.push(p1);
+  if (p2) parts.push(p2);
+  if (p3) parts.push(p3);
+  if (p4) parts.push(p4);
+  const name = parts.join(' ') || '—';
+
+  const ficha = toRecord(root?.ficha) ?? toRecord(root?.Ficha);
+  const prog = toRecord(ficha?.programaFormacion) ?? toRecord(ficha?.ProgramaFormacion);
+  const areaObj = toRecord(prog?.area) ?? toRecord(prog?.Area);
+  const centroObj = toRecord(prog?.centro) ?? toRecord(prog?.Centro);
+  const nivObj = toRecord(prog?.nivelFormacion) ?? toRecord(prog?.NivelFormacion);
+
+  const area = getStr(areaObj, 'areaNombre', 'AreaNombre');
+  const centro = getStr(centroObj, 'cenNombre', 'CenNombre');
+  const nivelFormacion = getStr(nivObj, 'nivForNombre', 'NivForNombre');
+  const modalidad = getStr(prog, 'progModalidad', 'ProgModalidad');
+  const formaModalidad = getStr(prog, 'progFormaModalidad', 'ProgFormaModalidad');
+  const jornada = getStr(ficha, 'ficJornada', 'FicJornada');
+  const estadoFormacion = getStr(ficha, 'ficEstadoFormacion', 'FicEstadoFormacion');
+  const phone = getStr(contacto, 'telefono', 'Telefono');
+
+  const email = getVal<string>(contacto, 'correoInstitucional', 'CorreoInstitucional') ?? getVal<string>(contacto, 'correoPersonal', 'CorreoPersonal') ?? '';
+  const ficCodigo = getVal<number>(ficha, 'ficCodigo', 'FicCodigo');
+  const progNombre = getVal<string>(prog, 'progNombre', 'ProgNombre') ?? '';
+  const segCodigo = r.segCodigo ?? (r as unknown as Record<string, unknown>).SegCodigo;
+  const estado = r.estadoSeguimiento ?? (r as unknown as Record<string, unknown>).EstadoSeguimiento;
+
   return {
-    id: r.segCodigo,
+    id: Number(segCodigo ?? 0),
     name,
-    ficha: String(r.aprendiz?.ficha?.ficCodigo ?? ''),
-    email: r.aprendiz?.aprendiz?.contacto?.correoInstitucional ?? '',
-    status: mapEstadoToStatus(r.estadoSeguimiento ?? ''),
-    program: r.aprendiz?.ficha?.programaFormacion?.progNombre ?? '',
-    estadoTexto: (r.estadoSeguimiento ?? '').trim() || undefined,
+    ficha: String(ficCodigo ?? ''),
+    email,
+    status: mapEstadoToStatus(String(estado ?? '')),
+    program: progNombre,
+    estadoTexto: String(estado ?? '').trim() || undefined,
+    phone: phone || undefined,
+    area: area || undefined,
+    centro: centro || undefined,
+    jornada: jornada || undefined,
+    nivelFormacion: nivelFormacion || undefined,
+    modalidad: modalidad || undefined,
+    formaModalidad: formaModalidad || undefined,
+    estadoFormacion: estadoFormacion || undefined,
   };
 }
 
@@ -69,7 +136,30 @@ export function Followups({
     }
   }, [targetStudentId]);
 
-  const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+  useEffect(() => {
+    if (selectedStudent == null) {
+      setProfileStudent(null);
+      return;
+    }
+    let cancelled = false;
+    setProfileLoading(true);
+    setProfileStudent(null);
+    getSeguimientoPorId(selectedStudent)
+      .then((r) => {
+        if (cancelled || !r) return;
+        setProfileStudent(seguimientoToStudent(r));
+      })
+      .catch(() => {
+        if (!cancelled) setProfileStudent(null);
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedStudent]);
+
+  const [profileStudent, setProfileStudent] = useState<Student | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'name' | 'email' | 'id' | 'program' | 'ficha'>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
@@ -134,13 +224,6 @@ export function Followups({
 
   const students = cardsData.map(seguimientoToStudent);
 
-  const studentBySegCodigo = (segCodigo: number): Student | undefined => {
-    const r =
-      cardsData.find((x) => x.segCodigo === segCodigo) ??
-      tableData.find((x) => x.segCodigo === segCodigo);
-    return r ? seguimientoToStudent(r) : undefined;
-  };
-
   const getStatusColor = (status: string) => {
     const colors = {
       stable: {
@@ -190,35 +273,26 @@ export function Followups({
     return true;
   });
 
-  if (viewingStudent) {
-    return (
-      <StudentProfile
-        student={viewingStudent}
-        onBack={() => setViewingStudent(null)}
-      />
-    );
-  }
   if (selectedStudent != null) {
-    const student = studentBySegCodigo(selectedStudent);
-    if (student) {
-      return (
-        <StudentProfile
-          student={student}
-          onBack={() => setSelectedStudent(null)}
-        />
-      );
-    }
-    if (cardsLoading || tableLoading) {
+    if (profileLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-24 gap-2 text-slate-500 dark:text-slate-400">
-          <p>Cargando…</p>
+          <p>Cargando perfil…</p>
         </div>
+      );
+    }
+    if (profileStudent) {
+      return (
+        <StudentProfile
+          student={profileStudent}
+          onBack={() => { setSelectedStudent(null); setProfileStudent(null); }}
+        />
       );
     }
     return (
       <div className="space-y-4 p-6 text-center">
         <p className="text-slate-600 dark:text-slate-400">
-          No se encontró ese seguimiento en los datos cargados. Usa la paginación o la vista Tabla.
+          No se encontró ese seguimiento.
         </p>
         <button
           type="button"
@@ -463,7 +537,7 @@ export function Followups({
               setTablePage(1);
             }}
             isLoading={tableLoading}
-            onRowClick={(r) => setViewingStudent(seguimientoToStudent(r))}
+            onRowClick={(r) => setSelectedStudent(r.segCodigo)}
           />
         </div>
       )}

@@ -7,20 +7,46 @@ import { API_BASE_URL } from './config';
 export interface SeguimientoListarResult {
   segCodigo: number;
   aprendiz: {
-    aprFicCodigo: number;
-    aprendiz: {
-      codigo: number;
+    aprFicCodigo?: number;
+    AprFicCodigo?: number;
+    aprendiz?: {
+      codigo?: number;
+      Codigo?: number;
       nroDocumento?: string | number | null;
+      NroDocumento?: string | number | null;
       nombres?: { primerNombre?: string | null; segundoNombre?: string | null };
       apellidos?: { primerApellido?: string | null; segundoApellido?: string | null };
-      contacto?: { correoInstitucional?: string | null; correoPersonal?: string | null };
+      Nombres?: { PrimerNombre?: string | null; SegundoNombre?: string | null };
+      Apellidos?: { PrimerApellido?: string | null; SegundoApellido?: string | null };
+      contacto?: { correoInstitucional?: string | null; correoPersonal?: string | null; telefono?: string | null };
+      Contacto?: { CorreoInstitucional?: string | null; CorreoPersonal?: string | null; Telefono?: string | null };
     };
-    ficha: {
-      ficCodigo: number;
-      programaFormacion?: { progNombre?: string };
+    ficha?: {
+      ficCodigo?: number;
+      FicCodigo?: number;
+      ficJornada?: string | null;
+      FicJornada?: string | null;
+      programaFormacion?: {
+        progNombre?: string | null;
+        ProgNombre?: string | null;
+        progModalidad?: string | null;
+        ProgModalidad?: string | null;
+        progFormaModalidad?: string | null;
+        ProgFormaModalidad?: string | null;
+        area?: { areaNombre?: string | null };
+        Area?: { areaNombre?: string | null; AreaNombre?: string | null };
+        centro?: { cenNombre?: string | null };
+        Centro?: { cenNombre?: string | null; CenNombre?: string | null };
+        nivelFormacion?: { nivForNombre?: string | null } | null;
+        NivelFormacion?: { nivForNombre?: string | null; NivForNombre?: string | null } | null;
+      };
+      ProgramaFormacion?: unknown;
     };
+    Ficha?: unknown;
+    Aprendiz?: unknown;
   };
-  estadoSeguimiento: string;
+  estadoSeguimiento?: string;
+  EstadoSeguimiento?: string;
 }
 
 export interface SeguimientoListarResponse {
@@ -38,6 +64,18 @@ export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise
   const response = await authFetch(url.toString());
   if (!response.ok) throw new Error('Error al listar seguimientos');
   return response.json();
+}
+
+/** Obtiene un seguimiento por ID con datos completos (área, centro, nivel formación, etc.) */
+export async function getSeguimientoPorId(id: number): Promise<SeguimientoListarResult | null> {
+  const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz/${id}`);
+  if (!response.ok) return null;
+  const data = (await response.json()) as Record<string, unknown>;
+  const segCodigo = data.segCodigo ?? data.SegCodigo;
+  const aprendiz = data.aprendiz ?? data.Aprendiz;
+  const estado = data.estadoSeguimiento ?? data.EstadoSeguimiento;
+  if (aprendiz == null) return null;
+  return { segCodigo: Number(segCodigo), aprendiz: aprendiz as SeguimientoListarResult['aprendiz'], estadoSeguimiento: String(estado ?? '') };
 }
 
 /** Valores exactos que acepta la API (EstadosSeguimiento.Normalizar) */
@@ -59,7 +97,6 @@ export interface CrearSeguimientoPayload {
   segTrimestreActual: number;
   segMotivo: string;
   segDescripcion: string;
-  segRecomendaciones: string;
   segEstadoSeguimiento: string;
   segFirmaProfesional?: string | null;
   segFirmaAprendiz?: string | null;

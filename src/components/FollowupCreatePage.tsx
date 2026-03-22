@@ -51,7 +51,6 @@ export function FollowupCreatePage({ config, onBack, onSuccess }: FollowupCreate
     trimestre: '',
     motivo: '',
     descripcion: '',
-    recomendaciones: '',
     status: 'stable' as 'stable' | 'observation' | 'critical',
   });
   const [loading, setLoading] = useState(false);
@@ -83,7 +82,6 @@ export function FollowupCreatePage({ config, onBack, onSuccess }: FollowupCreate
         trimestre: '',
         motivo: '',
         descripcion: '',
-        recomendaciones: '',
         status: 'stable',
       });
       setStudentSelected(true);
@@ -100,7 +98,6 @@ export function FollowupCreatePage({ config, onBack, onSuccess }: FollowupCreate
         trimestre: '',
         motivo: '',
         descripcion: '',
-        recomendaciones: '',
         status: 'stable',
       });
       setStudentSelected(false);
@@ -283,7 +280,6 @@ export function FollowupCreatePage({ config, onBack, onSuccess }: FollowupCreate
         segTrimestreActual: trim,
         segMotivo: form.motivo.trim(),
         segDescripcion: form.descripcion.trim() || '',
-        segRecomendaciones: form.recomendaciones.trim() || '',
         segEstadoSeguimiento: mapUiEstadoToApi(form.status),
         segFirmaProfesional: '',
         segFirmaAprendiz: '',
@@ -592,18 +588,6 @@ export function FollowupCreatePage({ config, onBack, onSuccess }: FollowupCreate
               value={form.descripcion}
               onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
               placeholder="Descripción u observación al aprendiz"
-              rows={3}
-              className="resize-none"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="recomendaciones">Recomendaciones</Label>
-            <Textarea
-              id="recomendaciones"
-              value={form.recomendaciones}
-              onChange={(e) => setForm({ ...form, recomendaciones: e.target.value })}
-              placeholder="Recomendaciones para el aprendiz"
               rows={3}
               className="resize-none"
             />
