@@ -8,6 +8,10 @@ import { Followups } from "./components/Followups";
 import { FollowupCreatePage, type FollowupCreateConfig } from "./components/FollowupCreatePage";
 import { CitaDetallePage, type CitaDetalleConfig } from "./components/CitaDetallePage";
 import { Students } from "./components/Students";
+import { CardsInfoManager } from "./components/CardsInfoManager";
+import { CardInfoDetailPage } from "./components/CardInfoDetailPage";
+import { CardInfoCreatePage } from "./components/CardInfoCreatePage";
+import type { CardInfo } from "./lib/cardsInfo";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
 import { ProfileEditPage } from "./components/ProfileEditPage";
@@ -35,6 +39,9 @@ type Section =
   | "followups"
   | "followups-create"
   | "students"
+  | "cards-info"
+  | "cards-info-detail"
+  | "cards-info-create"
   | "about"
   | "settings"
   | "profile-edit";
@@ -83,9 +90,15 @@ export default function App() {
   const [citaDetalleConfig, setCitaDetalleConfig] = useState<CitaDetalleConfig | null>(null);
   /** Incrementar para forzar recarga de listas en Seguimientos tras crear */
   const [followupsListKey, setFollowupsListKey] = useState(0);
+  /** Tarjetas informativas: card seleccionada para detalle */
+  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
+  /** Recarga lista de tarjetas informativas */
+  const [cardsInfoListKey, setCardsInfoListKey] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutProgress, setLogoutProgress] = useState(0);
   const [profileSavedToast, setProfileSavedToast] = useState(false);
+  /** appointmentId para seleccionar al abrir Mensajes desde una notificación de chat */
+  const [chatToSelectFromNotification, setChatToSelectFromNotification] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isLoggingOut) return;
@@ -142,6 +155,39 @@ export default function App() {
     setFollowupCreateConfig(null);
     setActiveSection("followups");
     setFollowupsListKey((k) => k + 1);
+  }, []);
+
+  const handleViewCard = useCallback((card: CardInfo) => {
+    const id = card.carCodigo;
+    if (id != null) {
+      setSelectedCardId(id);
+      setActiveSection("cards-info-detail");
+    }
+  }, []);
+
+  const handleOpenCardsInfoCreate = useCallback(() => {
+    setSelectedCardId(null);
+    setActiveSection("cards-info-create");
+  }, []);
+
+  const handleCardsInfoBack = useCallback(() => {
+    setSelectedCardId(null);
+    setActiveSection("cards-info");
+  }, []);
+
+  const handleCardsInfoDeleted = useCallback(() => {
+    setSelectedCardId(null);
+    setActiveSection("cards-info");
+    setCardsInfoListKey((k) => k + 1);
+  }, []);
+
+  const handleCardsInfoSaved = useCallback(() => {
+    setCardsInfoListKey((k) => k + 1);
+  }, []);
+
+  const handleCardsInfoCreateSuccess = useCallback(() => {
+    setActiveSection("cards-info");
+    setCardsInfoListKey((k) => k + 1);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -209,7 +255,12 @@ export default function App() {
           />
         );
       case "messages":
-        return <Messages />;
+        return (
+          <Messages
+            initialChatToSelect={chatToSelectFromNotification}
+            onInitialChatApplied={() => setChatToSelectFromNotification(null)}
+          />
+        );
       case "followups":
         return (
           <Followups
@@ -237,6 +288,36 @@ export default function App() {
           <Students
             onViewFollowup={handleViewFollowup}
             onNavigateCreateSeguimiento={handleNavigateCreateSeguimiento}
+          />
+        );
+      case "cards-info":
+        return (
+          <CardsInfoManager
+            onViewCard={handleViewCard}
+            onOpenCreate={handleOpenCardsInfoCreate}
+            listRefreshKey={cardsInfoListKey}
+          />
+        );
+      case "cards-info-detail":
+        return selectedCardId != null ? (
+          <CardInfoDetailPage
+            cardId={selectedCardId}
+            onBack={handleCardsInfoBack}
+            onDeleted={handleCardsInfoDeleted}
+            onSaved={handleCardsInfoSaved}
+          />
+        ) : (
+          <CardsInfoManager
+            onViewCard={handleViewCard}
+            onOpenCreate={handleOpenCardsInfoCreate}
+            listRefreshKey={cardsInfoListKey}
+          />
+        );
+      case "cards-info-create":
+        return (
+          <CardInfoCreatePage
+            onBack={handleCardsInfoBack}
+            onSuccess={handleCardsInfoCreateSuccess}
           />
         );
       case "about":
@@ -290,20 +371,40 @@ export default function App() {
     <ThemeProvider>
       <PsychologistProvider>
         <NotificationsProvider>
-        <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative">
+        <div
+          className={`flex bg-gradient-to-br from-slate-100 via-blue-100/60 to-purple-100/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative ${
+            activeSection === 'messages' ? 'h-screen overflow-hidden' : 'min-h-screen'
+          }`}
+        >
         {logoutOverlay}
         <Sidebar
-          activeSection={activeSection === "cita-detalle" ? "appointments" : activeSection}
+          activeSection={
+            activeSection === "cita-detalle"
+              ? "appointments"
+              : activeSection === "cards-info-detail" || activeSection === "cards-info-create"
+              ? "cards-info"
+              : activeSection
+          }
           onSectionChange={(section) => {
             if (section !== "followups-create") setFollowupCreateConfig(null);
             if (section === "appointments") setCitaDetalleConfig(null);
+            if (section !== "cards-info" && section !== "cards-info-detail" && section !== "cards-info-create") {
+              setSelectedCardId(null);
+            }
             setActiveSection(section);
           }}
           onLogout={handleLogout}
+          onNotificationChatClick={(appointmentId) => {
+            if (appointmentId != null) setChatToSelectFromNotification(appointmentId);
+          }}
         />
 
-        <main className={`flex-1 ml-64 ${activeSection === 'messages' ? 'p-4 flex flex-col h-screen overflow-hidden min-h-0' : 'p-8'}`}>
-          <div className={activeSection === 'messages' ? 'flex-1 min-h-0 flex flex-col' : 'max-w-7xl mx-auto'}>
+        <main
+          className={`flex-1 ml-64 min-w-0 ${activeSection === 'messages' ? 'p-4 flex flex-col h-screen overflow-hidden min-h-0' : 'p-8'}`}
+        >
+          <div
+            className={activeSection === 'messages' ? 'flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden' : 'max-w-7xl mx-auto'}
+          >
             {renderSection()}
           </div>
         </main>

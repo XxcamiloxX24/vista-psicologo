@@ -116,6 +116,15 @@ export function getPsychologistNameFromCita(c: CitaApi): string {
   return [n, a].filter(Boolean).join(' ') || '';
 }
 
+/** Código del aprendiz (AprCodigo) desde una cita. Necesario para createRoom. */
+export function getApprenticeCodigoFromCita(c: CitaApi): number | undefined {
+  const apRaw = c.aprendizCita as Record<string, unknown> | undefined;
+  const ap = apRaw?.aprendiz ?? apRaw?.Aprendiz;
+  if (!ap || typeof ap !== 'object') return undefined;
+  const cod = (ap as { codigo?: number }).codigo ?? (ap as Record<string, number>).Codigo;
+  return typeof cod === 'number' ? cod : undefined;
+}
+
 export interface CitasActivasResponse {
   paginaActual: number;
   tamanoPagina: number;
@@ -137,6 +146,20 @@ export async function listarCitasActivas(pagina = 1, tamanoPagina = 300): Promis
     throw new Error('Error al listar citas');
   }
   return response.json();
+}
+
+/**
+ * Obtiene citas del psicólogo para nuevo chat: cualquier estado excepto realizadas/completadas.
+ * Endpoint: GET /api/Citas/citas-para-nuevo-chat
+ */
+export async function getCitasParaNuevoChat(): Promise<CitaApi[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/Citas/citas-para-nuevo-chat`);
+  if (!response.ok) {
+    if (response.status === 403) return [];
+    throw new Error('Error al obtener citas para nuevo chat');
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
 }
 
 /**

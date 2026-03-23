@@ -2567,6 +2567,13 @@ html {
   transition: background-color 0.15s ease;
 }
 
+/* Chat: scroll visible y reserva espacio para scrollbar */
+.chat-messages-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
 /* Login: texto visible en inputs (modo claro = negro, modo oscuro = claro) */
 .login-form input[type="email"],
 .login-form input[type="password"],

@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Send, Paperclip, MoreVertical, Plus, X } from 'lucide-react';
+import { Search, Send, Paperclip, MoreVertical, Plus, X, Bell, BellOff, Trash2, MessageSquareOff } from 'lucide-react';
 import { Label } from './ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
   createRoom,
   getConversations,
@@ -10,7 +18,15 @@ import {
   type Conversation,
   type ChatMessage,
 } from '../lib/chat';
-import { listarSeguimientos } from '../lib/seguimiento';
+import {
+  getCitasParaNuevoChat,
+  programarSolicitud,
+  getStudentNameFromCita,
+  getFichaFromCita,
+  getApprenticeCodigoFromCita,
+  getCitaFieldFromApi,
+  type CitaApi,
+} from '../lib/citas';
 import { getPsychologistIdFromToken } from '../lib/psychologist';
 import { io, type Socket } from 'socket.io-client';
 import { usePsychologist } from '../contexts/PsychologistContext';
@@ -24,6 +40,7 @@ interface Chat {
   unread: number;
   ficha: string;
   appointmentId: number;
+  apprenticeId?: number;
 }
 
 interface Message {
@@ -51,7 +68,25 @@ function conversationToChat(c: Conversation): Chat {
     unread: 0,
     ficha: c.ficha ?? '',
     appointmentId: c.appointmentId,
+    apprenticeId: c.apprenticeId,
   };
+}
+
+const MUTED_CHATS_KEY = 'healthymind-muted-chats';
+
+function loadMutedChats(): Set<number> {
+  try {
+    const raw = localStorage.getItem(MUTED_CHATS_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as number[];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveMutedChats(set: Set<number>) {
+  localStorage.setItem(MUTED_CHATS_KEY, JSON.stringify([...set]));
 }
 
 function chatMessageToMessage(m: ChatMessage, psychologistId: number): Message {
@@ -65,7 +100,13 @@ function chatMessageToMessage(m: ChatMessage, psychologistId: number): Message {
   };
 }
 
-export function Messages() {
+interface MessagesProps {
+  /** Para abrir un chat específico al venir desde una notificación */
+  initialChatToSelect?: number | null;
+  onInitialChatApplied?: () => void;
+}
+
+export function Messages({ initialChatToSelect = null, onInitialChatApplied }: MessagesProps = {}) {
   const { psychologist } = usePsychologist();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -84,11 +125,18 @@ export function Messages() {
   const [creating, setCreating] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const [newChat, setNewChat] = useState({ apprenticeId: 0, apprenticeName: '', ficha: '', area: 'General' });
-  const [availableApprentices, setAvailableApprentices] = useState<{ aprCodigo: number; name: string; ficha: string }[]>([]);
+  const [newChat, setNewChat] = useState({
+    appointmentId: 0,
+    apprenticeId: 0,
+    apprenticeName: '',
+    ficha: '',
+    area: 'General',
+  });
+  const [availableCitas, setAvailableCitas] = useState<CitaApi[]>([]);
   const [loadingApprentices, setLoadingApprentices] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState<number | null>(null);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [mutedChats, setMutedChats] = useState<Set<number>>(loadMutedChats);
   const typingStopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingStartSentRef = useRef(false);
   const typingAppointmentIdRef = useRef<number | null>(null);
@@ -103,6 +151,14 @@ export function Messages() {
     scrollToBottom();
   }, [chatMessages, selectedChat]);
 
+  // Al venir desde una notificación, seleccionar ese chat
+  useEffect(() => {
+    if (initialChatToSelect != null) {
+      setSelectedChat(initialChatToSelect);
+      onInitialChatApplied?.();
+    }
+  }, [initialChatToSelect, onInitialChatApplied]);
+
   // Cargar conversaciones
   useEffect(() => {
     getConversations()
@@ -116,31 +172,15 @@ export function Messages() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Cargar aprendices para nuevo chat (desde seguimientos)
+  // Cargar citas pendientes para nuevo chat (el psicólogo elige aprender con solicitud pendiente)
   useEffect(() => {
     if (showNewChatModal) {
       setLoadingApprentices(true);
-      listarSeguimientos(1, 100)
-        .then((res) => {
-          const list: { aprCodigo: number; name: string; ficha: string }[] = [];
-          const seen = new Set<number>();
-          for (const r of res.resultados ?? []) {
-            const codigo = r.aprendiz?.aprendiz?.codigo;
-            if (codigo == null || seen.has(codigo)) continue;
-            seen.add(codigo);
-            const n = r.aprendiz?.aprendiz?.nombres;
-            const a = r.aprendiz?.aprendiz?.apellidos;
-            const firstName = (n?.primerNombre ?? n?.segundoNombre ?? '') as string;
-            const secondName = (n?.segundoNombre ?? '') as string;
-            const firstLastName = (a?.primerApellido ?? a?.segundoApellido ?? '') as string;
-            const secondLastName = (a?.segundoApellido ?? '') as string;
-            const name = [firstName, secondName, firstLastName, secondLastName].filter(Boolean).join(' ').trim() || 'Aprendiz';
-            const ficha = String(r.aprendiz?.ficha?.ficCodigo ?? '');
-            list.push({ aprCodigo: codigo, name, ficha });
-          }
-          setAvailableApprentices(list);
+      getCitasParaNuevoChat()
+        .then((list) => {
+          setAvailableCitas(list);
         })
-        .catch(() => setAvailableApprentices([]))
+        .catch(() => setAvailableCitas([]))
         .finally(() => setLoadingApprentices(false));
     }
   }, [showNewChatModal]);
@@ -192,6 +232,8 @@ export function Messages() {
       if (!psychologistId) return;
       const aptId = msg.appointmentId ?? selectedChat;
       if (!aptId) return;
+      // No añadir nuestros propios mensajes: ya los mostramos con optimistic update
+      if (msg.senderId === psychologistId) return;
       const m = chatMessageToMessage(msg, psychologistId);
       setChatMessages((prev) => ({
         ...prev,
@@ -216,7 +258,7 @@ export function Messages() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [selectedChat, psychologistId, chats, socketEpoch]);
+  }, [selectedChat, psychologistId, socketEpoch]);
 
   const emitTypingStop = useCallback(() => {
     const aptId = typingAppointmentIdRef.current;
@@ -267,52 +309,97 @@ export function Messages() {
     const text = messageText.trim();
     setMessageText('');
 
-    socketRef.current.emit('send_message', {
-      appointmentId: selectedChat,
-      content: text,
-      type: 'text',
-    });
+    // Optimistic update: mostrar el mensaje de inmediato
+    const optimista: Message = {
+      id: `temp-${Date.now()}`,
+      text,
+      sender: 'psychologist',
+      timestamp: 'Ahora',
+    };
+    setChatMessages((prev) => ({
+      ...prev,
+      [selectedChat]: [...(prev[selectedChat] ?? []), optimista],
+    }));
 
     setChats((prev) =>
       prev.map((c) =>
         c.id === selectedChat ? { ...c, lastMessage: text, timestamp: 'Ahora' } : c
       )
     );
+
+    socketRef.current.emit('send_message', {
+      appointmentId: selectedChat,
+      content: text,
+      type: 'text',
+    });
+
     setSending(false);
   };
 
   const handleCreateChat = async () => {
     if (!newChat.apprenticeId || !newChat.apprenticeName) {
-      alert('Por favor seleccione un aprendiz');
+      alert('Por favor seleccione una cita');
       return;
     }
 
     setCreating(true);
     try {
-      const { appointmentId } = await createRoom({
+      const appointmentId = newChat.appointmentId;
+      const citaSeleccionada = availableCitas.find((c) => getCitaFieldFromApi<number>(c, 'citCodigo', 'CitCodigo') === appointmentId);
+      const estado = (citaSeleccionada ? getCitaFieldFromApi<string>(citaSeleccionada, 'citEstadoCita', 'CitEstadoCita') ?? '' : '').trim().toLowerCase();
+
+      // Solo si es pendiente: programar como tipo "chat" (actualiza la cita en el API)
+      if (appointmentId > 0 && estado === 'pendiente') {
+        const hoy = new Date();
+        const fecha = hoy.toISOString().split('T')[0];
+        await programarSolicitud(appointmentId, {
+          citFechaProgramada: fecha,
+          citHoraInicio: '09:00',
+          citHoraFin: '10:00',
+          citTipoCita: 'chat',
+          citEstadoCita: 'programada',
+        });
+      }
+
+      // Si el estudiante ya tiene un chat con el psicólogo, abrir ese en lugar de crear uno nuevo
+      const chatExistente = chats.find((c) => c.apprenticeId === newChat.apprenticeId);
+      if (chatExistente) {
+        setSelectedChat(chatExistente.appointmentId);
+        setShowNewChatModal(false);
+        setNewChat({ appointmentId: 0, apprenticeId: 0, apprenticeName: '', ficha: '', area: 'General' });
+        socketRef.current?.emit('join_chat', { appointmentId: chatExistente.appointmentId });
+        return;
+      }
+
+      // No existe chat previo: crear nuevo
+      const { appointmentId: roomAppointmentId } = await createRoom({
         apprenticeId: newChat.apprenticeId,
         area: newChat.area,
+        appointmentId: appointmentId > 0 ? appointmentId : undefined,
         apprenticeName: newChat.apprenticeName,
         ficha: newChat.ficha,
       });
 
+      const finalAppointmentId = roomAppointmentId ?? appointmentId;
+
       const newChatObj: Chat = {
-        id: appointmentId,
+        id: finalAppointmentId,
         name: newChat.apprenticeName,
         ficha: newChat.ficha,
         lastMessage: 'Nueva conversación',
         timestamp: 'Ahora',
         unread: 0,
-        appointmentId,
+        appointmentId: finalAppointmentId,
+        apprenticeId: newChat.apprenticeId,
       };
 
       setChats((prev) => [newChatObj, ...prev]);
-      setChatMessages((prev) => ({ ...prev, [appointmentId]: [] }));
-      setSelectedChat(appointmentId);
+      setChatMessages((prev) => ({ ...prev, [finalAppointmentId]: [] }));
+      setSelectedChat(finalAppointmentId);
       setShowNewChatModal(false);
-      setNewChat({ apprenticeId: 0, apprenticeName: '', ficha: '', area: 'General' });
+      setNewChat({ appointmentId: 0, apprenticeId: 0, apprenticeName: '', ficha: '', area: 'General' });
 
-      socketRef.current?.emit('join_chat', { appointmentId });
+      socketRef.current?.emit('join_chat', { appointmentId: finalAppointmentId });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error al crear la conversación');
     } finally {
@@ -332,6 +419,32 @@ export function Messages() {
 
   const currentChat = chats.find((c) => c.id === selectedChat);
   const messages = selectedChat ? (chatMessages[selectedChat] ?? []) : [];
+  const isMuted = selectedChat ? mutedChats.has(selectedChat) : false;
+
+  const handleToggleMute = () => {
+    if (!selectedChat) return;
+    const next = new Set(mutedChats);
+    if (next.has(selectedChat)) next.delete(selectedChat);
+    else next.add(selectedChat);
+    setMutedChats(next);
+    saveMutedChats(next);
+  };
+
+  const handleRemoveChat = (permanent = false) => {
+    if (!selectedChat || !currentChat) return;
+    const msg = permanent
+      ? `¿Eliminar permanentemente la conversación con ${currentChat.name}? Se borrará el historial de mensajes.`
+      : `¿Quitar el chat con ${currentChat.name} de la lista?`;
+    if (!window.confirm(msg)) return;
+    setChats((prev) => prev.filter((c) => c.appointmentId !== selectedChat));
+    setChatMessages((prev) => {
+      const next = { ...prev };
+      delete next[selectedChat];
+      return next;
+    });
+    const remaining = chats.filter((c) => c.appointmentId !== selectedChat);
+    setSelectedChat(remaining.length > 0 ? remaining[0].appointmentId : null);
+  };
   const filteredChats = chats.filter(
     (chat) =>
       chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -339,7 +452,7 @@ export function Messages() {
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden min-w-0">
       <div className="flex items-center justify-between shrink-0 pb-4">
         <div>
           <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
@@ -385,31 +498,71 @@ export function Messages() {
 
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="student">Seleccionar Aprendiz</Label>
-                  <select
-                    id="student"
-                    value={newChat.apprenticeId}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      const ap = availableApprentices.find((a) => a.aprCodigo === v);
+                  <Label htmlFor="student">Seleccionar cita</Label>
+                  <Select
+                    value={newChat.appointmentId ? String(newChat.appointmentId) : '0'}
+                    onValueChange={(v) => {
+                      const citCodigo = parseInt(v, 10);
+                      const cita = availableCitas.find((c) => getCitaFieldFromApi<number>(c, 'citCodigo', 'CitCodigo') === citCodigo);
+                      const apprenticeId = cita ? getApprenticeCodigoFromCita(cita) ?? 0 : 0;
+                      const name = cita ? getStudentNameFromCita(cita) : '';
+                      const ficha = cita ? getFichaFromCita(cita) : '';
                       setNewChat({
-                        apprenticeId: v,
-                        apprenticeName: ap?.name ?? '',
-                        ficha: ap?.ficha ?? '',
+                        appointmentId: citCodigo,
+                        apprenticeId,
+                        apprenticeName: name,
+                        ficha,
                         area: newChat.area,
                       });
                     }}
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50'}`}
                   >
-                    <option value={0}>Seleccione un aprendiz</option>
-                    {availableApprentices.map((ap) => (
-                      <option key={ap.aprCodigo} value={ap.aprCodigo}>
-                        {ap.name} - Ficha: {ap.ficha}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id="student"
+                      className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                        isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50'
+                      }`}
+                    >
+                      <SelectValue placeholder="Seleccione una cita" />
+                    </SelectTrigger>
+                    <SelectContent
+                      container={document.body}
+                      className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                        isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                      }`}
+                      style={{
+                        ...(isDark ? { backgroundColor: '#334155' } : { backgroundColor: '#fff' }),
+                        width: 'var(--radix-select-trigger-width)',
+                        minWidth: 'var(--radix-select-trigger-width)',
+                        zIndex: 2147483648,
+                      }}
+                    >
+                      <SelectItem value="0" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>
+                        Seleccione una cita
+                      </SelectItem>
+                      {availableCitas.map((c) => {
+                        const cod = getCitaFieldFromApi<number>(c, 'citCodigo', 'CitCodigo') ?? 0;
+                        const name = getStudentNameFromCita(c);
+                        const ficha = getFichaFromCita(c);
+                        return (
+                          <SelectItem
+                            key={cod}
+                            value={String(cod)}
+                            hideIndicator
+                            className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}
+                          >
+                            {name} - Ficha: {ficha}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
                   {loadingApprentices && (
-                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cargando aprendices...</p>
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cargando citas...</p>
+                  )}
+                  {!loadingApprentices && availableCitas.length === 0 && (
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      No hay citas disponibles (se excluyen realizadas y completadas).
+                    </p>
                   )}
                 </div>
 
@@ -424,7 +577,7 @@ export function Messages() {
                   <button
                     type="button"
                     onClick={handleCreateChat}
-                    disabled={creating || !newChat.apprenticeId}
+                    disabled={creating || !newChat.apprenticeId || !newChat.appointmentId}
                     className="flex-1 px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium hover:shadow-lg transition-all disabled:opacity-50"
                   >
                     {creating ? 'Creando...' : 'Crear Conversación'}
@@ -436,25 +589,29 @@ export function Messages() {
           document.body
         )}
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
         <div
-          className={`grid grid-cols-3 flex-1 min-h-0 backdrop-blur-sm rounded-2xl border shadow-sm overflow-hidden ${isDark ? 'bg-slate-800/90 border-slate-600/50' : 'bg-white/90 border-purple-100/50'}`}
-          style={{ minHeight: 0, gridTemplateRows: 'minmax(0, 1fr)' }}
+          className={`grid flex-1 min-h-0 w-full max-w-full backdrop-blur-sm rounded-2xl border shadow-sm overflow-hidden ${isDark ? 'bg-slate-800/90 border-slate-600/50' : 'bg-white/90 border-purple-100/50'}`}
+          style={{
+            minHeight: 0,
+            gridTemplateRows: 'minmax(0, 1fr)',
+            gridTemplateColumns: '320px minmax(0, 1fr)',
+          }}
         >
-          {/* Lista de chats */}
+          {/* Lista de chats - ancho fijo 320px, nunca se oculta */}
           <div
-            className={`border-r flex flex-col min-h-0 ${isDark ? 'border-slate-600/50' : 'border-purple-100/50'}`}
+            className={`border-r flex flex-col min-h-0 w-[320px] shrink-0 overflow-hidden ${isDark ? 'border-slate-600/50' : 'border-purple-100/50'}`}
             style={isDark ? { backgroundColor: 'rgb(51 65 85)' } : undefined}
           >
             <div className={`p-4 border-b shrink-0 ${isDark ? 'border-slate-600/50' : 'border-purple-100/50'}`}>
-              <div className="relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+              <div className="relative w-full">
+                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar conversaciones..."
-                  className={`w-full pl-10 pr-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50'}`}
+                  className={`w-full min-w-0 pl-10 pr-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50'}`}
                 />
               </div>
             </div>
@@ -510,8 +667,8 @@ export function Messages() {
             </div>
           </div>
 
-          {/* Ventana de chat */}
-          <div className={`col-span-2 flex flex-col min-h-0 overflow-hidden ${isDark ? 'bg-slate-800/95' : 'bg-white'}`}>
+          {/* Ventana de chat - toma el espacio restante */}
+          <div className={`flex flex-col min-h-0 min-w-0 overflow-hidden ${isDark ? 'bg-slate-800/95' : 'bg-white'}`}>
             {currentChat && (
               <>
                 <div className={`p-4 border-b shrink-0 ${
@@ -528,20 +685,74 @@ export function Messages() {
                         </p>
                       )}
                     </div>
-                    <button className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isDark ? 'hover:bg-slate-600/50' : 'hover:bg-purple-100/50'}`}>
-                      <MoreVertical className={`w-5 h-5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`} />
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isDark ? 'hover:bg-slate-600/50' : 'hover:bg-purple-100/50'}`}
+                        >
+                          <MoreVertical className={`w-5 h-5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        sideOffset={6}
+                        className={isDark ? 'bg-slate-800 border-slate-600' : ''}
+                        style={{ zIndex: 9999 }}
+                      >
+                        <DropdownMenuItem onClick={handleToggleMute}>
+                          {isMuted ? (
+                            <>
+                              <Bell className="w-4 h-4" />
+                              Activar notificaciones
+                            </>
+                          ) : (
+                            <>
+                              <BellOff className="w-4 h-4" />
+                              Silenciar notificaciones
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleRemoveChat(false)}
+                          variant="destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Eliminar el chat
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleRemoveChat(true)}
+                          variant="destructive"
+                        >
+                          <MessageSquareOff className="w-4 h-4" />
+                          Eliminar la conversación
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
-                <div className={`flex-1 min-h-0 overflow-y-auto p-6 space-y-4 ${isDark ? 'bg-slate-800/80' : 'bg-white'}`}>
-                  {messages.map((msg) => (
+                <div
+                  className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isDark ? 'bg-slate-800/80' : 'bg-white'}`}
+                  style={{ minHeight: 0, flex: '1 1 0%' }}
+                >
+                  <div
+                    className="chat-messages-scroll min-h-0 p-6 scroll-smooth flex-1"
+                    style={{
+                      overscrollBehavior: 'contain',
+                      flex: '1 1 0%',
+                      minHeight: 0,
+                    }}
+                  >
+                    <div className="max-w-2xl mx-auto w-full space-y-5">
+                    {messages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${msg.sender === 'psychologist' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[70%] ${
+                        className={`max-w-[85%] sm:max-w-[75%] ${
                           msg.sender === 'psychologist'
                             ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl rounded-tr-sm'
                             : isDark ? 'bg-slate-700 text-slate-200 rounded-2xl rounded-tl-sm' : 'bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm'
@@ -559,8 +770,10 @@ export function Messages() {
                         </p>
                       </div>
                     </div>
-                  ))}
-                  <div ref={messagesEndRef} />
+                    ))}
+                    <div ref={messagesEndRef} />
+                    </div>
+                  </div>
                 </div>
 
                 {otherUserTyping && (

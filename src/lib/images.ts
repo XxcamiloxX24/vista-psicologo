@@ -85,6 +85,34 @@ export async function uploadProfileImage(file: File): Promise<{ url: string; id:
 }
 
 /**
+ * Sube una imagen para tarjeta informativa (context=card).
+ * @returns URL de Cloudinary
+ * @throws Error si falla la subida
+ */
+export async function uploadCardImage(file: File): Promise<string> {
+  if (!getToken()) throw new Error('Debes iniciar sesión');
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('context', 'card');
+
+  const res = await authFetch(`${IMAGES_API_URL}/api/images/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? 'Error al subir la imagen');
+  }
+  const data = (await res.json()) as { url?: string; secureUrl?: string };
+  const url = (data?.secureUrl ?? data?.url ?? '').trim();
+  if (!url || !url.startsWith('http')) {
+    throw new Error('La API no devolvió una URL válida de la imagen');
+  }
+  return url;
+}
+
+/**
  * Sube una imagen de firma (context=firma).
  * @param file - Archivo de imagen (p. ej. desde canvas.toBlob)
  * @returns URL de la imagen subida

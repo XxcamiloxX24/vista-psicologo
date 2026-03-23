@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell } from 'lucide-react';
+import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell, LayoutGrid } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
@@ -12,6 +12,9 @@ type Section =
   | 'followups'
   | 'followups-create'
   | 'students'
+  | 'cards-info'
+  | 'cards-info-detail'
+  | 'cards-info-create'
   | 'about'
   | 'settings'
   | 'profile-edit';
@@ -20,9 +23,11 @@ interface SidebarProps {
   activeSection: Section;
   onSectionChange: (section: Section) => void;
   onLogout: () => void;
+  /** Se llama al hacer clic en una notificación de chat; appointmentId para abrir ese chat */
+  onNotificationChatClick?: (appointmentId?: number) => void;
 }
 
-export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarProps) {
+export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificationChatClick }: SidebarProps) {
   const { displayName, initials, profileImageUrl } = usePsychologist();
   const { resolvedTheme } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
@@ -37,6 +42,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
     { id: 'messages' as Section, label: 'Mensajes', icon: MessageSquare },
     { id: 'followups' as Section, label: 'Seguimientos', icon: Activity },
     { id: 'students' as Section, label: 'Fichas', icon: Users },
+    { id: 'cards-info' as Section, label: 'Tarjetas informativas', icon: LayoutGrid },
     { id: 'about' as Section, label: 'Sobre Nosotros', icon: Info },
   ];
 
@@ -64,7 +70,8 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
             const Icon = item.icon;
             const isActive =
               activeSection === item.id ||
-              (item.id === 'followups' && activeSection === 'followups-create');
+              (item.id === 'followups' && activeSection === 'followups-create') ||
+              (item.id === 'cards-info' && (activeSection === 'cards-info-detail' || activeSection === 'cards-info-create'));
             
             return (
               <button
@@ -169,6 +176,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout }: SidebarPro
                               markAsRead(n.id);
                               onSectionChange('messages');
                               setNotificationsOpen(false);
+                              onNotificationChatClick?.(n.appointmentId);
                             }}
                             className={`w-full text-left p-3 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 transition-colors ${!n.read ? 'bg-purple-50/30 dark:bg-slate-700/30' : ''}`}
                           >
