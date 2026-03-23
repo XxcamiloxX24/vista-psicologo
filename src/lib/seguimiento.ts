@@ -66,16 +66,99 @@ export async function listarSeguimientos(pagina = 1, tamanoPagina = 10): Promise
   return response.json();
 }
 
-/** Obtiene un seguimiento por ID con datos completos (área, centro, nivel formación, etc.) */
-export async function getSeguimientoPorId(id: number): Promise<SeguimientoListarResult | null> {
+/** Seguimiento con todos los campos (respuesta de GET por ID) */
+export interface SeguimientoDetalle extends SeguimientoListarResult {
+  segAprendizFk?: number | null;
+  segPsicologoFk?: number | null;
+  fechaInicioSeguimiento?: string | null;
+  fechaFinSeguimiento?: string | null;
+  areaRemitido?: string | null;
+  trimestreActual?: number | null;
+  motivo?: string | null;
+  descripcion?: string | null;
+  firmaProfesional?: string | null;
+  firmaAprendiz?: string | null;
+}
+
+/** Payload para PUT EditarInformacion (campos del DTO) */
+export interface EditarSeguimientoPayload {
+  segAprendizFk?: number | null;
+  segPsicologoFk?: number | null;
+  segFechaSeguimiento?: string | null;
+  segFechaFin?: string | null;
+  segAreaRemitido?: string | null;
+  segTrimestreActual?: number | null;
+  segMotivo?: string | null;
+  segDescripcion?: string | null;
+  segEstadoSeguimiento?: string | null;
+  segFirmaProfesional?: string | null;
+  segFirmaAprendiz?: string | null;
+}
+
+function getField<T>(data: Record<string, unknown>, camel: string, pascal: string): T | undefined {
+  return (data[camel] ?? data[pascal]) as T | undefined;
+}
+
+/** Obtiene un seguimiento por ID con datos completos (área, centro, nivel formación, descripción, fechas, etc.) */
+export async function getSeguimientoPorId(id: number): Promise<SeguimientoDetalle | null> {
   const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz/${id}`);
   if (!response.ok) return null;
   const data = (await response.json()) as Record<string, unknown>;
-  const segCodigo = data.segCodigo ?? data.SegCodigo;
+  const segCodigo = getField<number>(data, 'segCodigo', 'SegCodigo');
   const aprendiz = data.aprendiz ?? data.Aprendiz;
-  const estado = data.estadoSeguimiento ?? data.EstadoSeguimiento;
+  const estado = getField<string>(data, 'estadoSeguimiento', 'EstadoSeguimiento');
   if (aprendiz == null) return null;
-  return { segCodigo: Number(segCodigo), aprendiz: aprendiz as SeguimientoListarResult['aprendiz'], estadoSeguimiento: String(estado ?? '') };
+  const apr = aprendiz as Record<string, unknown>;
+  const psi = (data.psicologo ?? data.Psicologo) as Record<string, unknown> | undefined;
+  return {
+    segCodigo: Number(segCodigo ?? 0),
+    aprendiz: aprendiz as SeguimientoListarResult['aprendiz'],
+    estadoSeguimiento: String(estado ?? ''),
+    segAprendizFk: (apr?.AprFicCodigo ?? apr?.aprFicCodigo) as number | undefined,
+    segPsicologoFk: psi ? (psi.PsiCodigo ?? psi.psiCodigo) as number | undefined : undefined,
+    fechaInicioSeguimiento: getField<string>(data, 'fechaInicioSeguimiento', 'FechaInicioSeguimiento'),
+    fechaFinSeguimiento: getField<string>(data, 'fechaFinSeguimiento', 'FechaFinSeguimiento'),
+    areaRemitido: getField<string>(data, 'areaRemitido', 'AreaRemitido'),
+    trimestreActual: getField<number>(data, 'trimestreActual', 'TrimestreActual'),
+    motivo: getField<string>(data, 'motivo', 'Motivo'),
+    descripcion: getField<string>(data, 'descripcion', 'Descripcion'),
+    firmaProfesional: getField<string>(data, 'firmaProfesional', 'FirmaProfesional'),
+    firmaAprendiz: getField<string>(data, 'firmaAprendiz', 'FirmaAprendiz'),
+  };
+}
+
+/** Actualiza un seguimiento (PUT). Usar para finalizar o editar información. */
+export async function editarSeguimiento(id: number, payload: EditarSeguimientoPayload): Promise<unknown> {
+  const body = {
+    segAprendizFk: payload.segAprendizFk ?? null,
+    segPsicologoFk: payload.segPsicologoFk ?? null,
+    segFechaSeguimiento: payload.segFechaSeguimiento ?? null,
+    segFechaFin: payload.segFechaFin ?? null,
+    segAreaRemitido: payload.segAreaRemitido ?? null,
+    segTrimestreActual: payload.segTrimestreActual ?? null,
+    segMotivo: payload.segMotivo ?? null,
+    segDescripcion: payload.segDescripcion ?? null,
+    segEstadoSeguimiento: payload.segEstadoSeguimiento ?? null,
+    segFirmaProfesional: payload.segFirmaProfesional ?? null,
+    segFirmaAprendiz: payload.segFirmaAprendiz ?? null,
+  };
+  const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text || 'Error al actualizar el seguimiento';
+    try {
+      const j = JSON.parse(text) as { message?: string; title?: string };
+      if (j.message) message = j.message;
+    } catch {
+      /* usar texto plano */
+    }
+    throw new Error(message);
+  }
+  return response.json();
 }
 
 /** Valores exactos que acepta la API (EstadosSeguimiento.Normalizar) */

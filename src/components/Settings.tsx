@@ -1,10 +1,346 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2, PenLine, Upload } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { changePassword } from '../lib/auth';
+import { listImages, uploadSignatureImage, deleteImage, type ImageItem } from '../lib/images';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+
+function FirmaThumbnail({
+  img,
+  isDark,
+  isDeleting,
+  onDelete,
+}: {
+  img: ImageItem;
+  isDark: boolean;
+  isDeleting: boolean;
+  onDelete: () => void;
+}) {
+  const url = img.secureUrl ?? img.url ?? '';
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  if (!url) return null;
+
+  return (
+    <div
+      className={`relative rounded-lg border-2 overflow-hidden shrink-0 ${
+        isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'
+      }`}
+      style={{ width: 160, height: 100 }}
+    >
+      <div className="absolute inset-0 flex items-center justify-center p-1">
+        {loadFailed ? (
+          <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>No disp.</span>
+        ) : (
+          <img
+            src={url}
+            alt="Firma guardada"
+            className="w-full h-full object-contain"
+            onError={() => setLoadFailed(true)}
+          />
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={isDeleting}
+        title="Eliminar firma"
+        className="absolute -top-1 -right-1 z-30 w-7 h-7 flex items-center justify-center text-white bg-gray border-2 border-white shadow-lg hover:bg-red-600 disabled:opacity-60"
+      >
+        {isDeleting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <X className="w-4 h-4 shrink-0" strokeWidth={2.5} />}
+      </button>
+    </div>
+  );
+}
+
+function FirmaProfesionalSection({
+  isDark,
+  savedFirmas,
+  savedFirmasLoading,
+  firmaMode,
+  setFirmaMode,
+  firmaSaving,
+  setFirmaSaving,
+  deletingFirmaId,
+  setDeletingFirmaId,
+  refreshSavedFirmas,
+  firmaCanvasRef,
+  firmaFileInputRef,
+  firmaIsDrawingRef,
+  firmaLastPosRef,
+  setFirmaToast,
+}: {
+  isDark: boolean;
+  savedFirmas: ImageItem[];
+  savedFirmasLoading: boolean;
+  firmaMode: 'list' | 'draw';
+  setFirmaMode: (m: 'list' | 'draw') => void;
+  firmaSaving: boolean;
+  setFirmaSaving: (v: boolean) => void;
+  deletingFirmaId: string | null;
+  setDeletingFirmaId: (id: string | null) => void;
+  refreshSavedFirmas: () => void;
+  firmaCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  firmaFileInputRef: React.RefObject<HTMLInputElement | null>;
+  firmaIsDrawingRef: React.MutableRefObject<boolean>;
+  firmaLastPosRef: React.MutableRefObject<{ x: number; y: number } | null>;
+  setFirmaToast: (msg: string) => void;
+}) {
+  useEffect(() => {
+    if (firmaMode !== 'draw') return;
+    const canvas = firmaCanvasRef.current;
+    if (!canvas) return;
+    const init = () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = isDark ? '#ffffff' : '#1e293b';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.fillStyle = isDark ? '#334155' : '#f8fafc';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    };
+    const id = requestAnimationFrame(() => requestAnimationFrame(init));
+    return () => cancelAnimationFrame(id);
+  }, [isDark, firmaMode, firmaCanvasRef]);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = firmaCanvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const draw = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const ctx = firmaCanvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  };
+
+  const clearCanvas = () => {
+    const canvas = firmaCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = isDark ? '#334155' : '#f8fafc';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  };
+
+  const handleSaveDraw = async () => {
+    const canvas = firmaCanvasRef.current;
+    if (!canvas) return;
+    setFirmaSaving(true);
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          setFirmaSaving(false);
+          return;
+        }
+        try {
+          const file = new File([blob], 'firma.png', { type: 'image/png' });
+          await uploadSignatureImage(file);
+          setFirmaToast('Firma guardada correctamente');
+          setFirmaMode('list');
+          refreshSavedFirmas();
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Error al subir la firma');
+        } finally {
+          setFirmaSaving(false);
+        }
+      },
+      'image/png',
+      0.95
+    );
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    setFirmaSaving(true);
+    try {
+      await uploadSignatureImage(file);
+      setFirmaToast('Firma guardada correctamente');
+      refreshSavedFirmas();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al subir la imagen');
+    } finally {
+      setFirmaSaving(false);
+    }
+    e.target.value = '';
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingFirmaId(id);
+    try {
+      await deleteImage(id);
+      setFirmaToast('Firma eliminada');
+      refreshSavedFirmas();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar');
+    } finally {
+      setDeletingFirmaId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`}>
+        Guarda firmas que podrás reutilizar al finalizar seguimientos. Dibuja una nueva o sube una imagen.
+      </p>
+
+      <div>
+        <h4 className={`text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>Tus firmas guardadas</h4>
+        {savedFirmasLoading ? (
+          <p className={`text-sm py-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cargando…</p>
+        ) : savedFirmas.length === 0 ? (
+          <p className={`text-sm py-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No tienes firmas guardadas.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {savedFirmas.map((img) => (
+              <FirmaThumbnail
+                key={img._id}
+                img={img}
+                isDark={isDark}
+                isDeleting={deletingFirmaId === img._id}
+                onDelete={() => handleDelete(img._id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h4 className={`text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>Agregar firma</h4>
+        {firmaMode === 'list' ? (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFirmaMode('draw')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                isDark
+                  ? 'bg-slate-600 text-white border-slate-500 hover:bg-slate-500'
+                  : 'bg-slate-200 text-slate-800 border-slate-300 hover:bg-slate-300 dark:bg-slate-600 dark:text-white dark:border-slate-500 dark:hover:bg-slate-500'
+              }`}
+            >
+              <PenLine className="w-4 h-4" />
+              Dibujar
+            </button>
+            <button
+              type="button"
+              onClick={() => firmaFileInputRef.current?.click()}
+              disabled={firmaSaving}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                isDark
+                  ? 'bg-slate-600 text-white border-slate-500 hover:bg-slate-500 disabled:opacity-50'
+                  : 'bg-slate-200 text-slate-800 border-slate-300 hover:bg-slate-300 dark:bg-slate-600 dark:text-white dark:border-slate-500 dark:hover:bg-slate-500 disabled:opacity-50'
+              }`}
+            >
+              {firmaSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Cargar imagen
+            </button>
+          </div>
+        ) : firmaMode === 'draw' ? (
+          <div className="space-y-3 w-64 max-w-full">
+            <canvas
+              ref={firmaCanvasRef}
+              className={`w-full h-20 rounded-lg border-2 cursor-crosshair touch-none ${
+                isDark ? 'border-slate-500 bg-slate-700/50' : 'border-slate-200 bg-slate-50'
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                const pos = getPos(e);
+                if (pos) {
+                  firmaIsDrawingRef.current = true;
+                  firmaLastPosRef.current = pos;
+                }
+              }}
+              onMouseMove={(e) => {
+                e.preventDefault();
+                if (!firmaIsDrawingRef.current) return;
+                const pos = getPos(e);
+                if (pos && firmaLastPosRef.current) {
+                  draw(firmaLastPosRef.current, pos);
+                  firmaLastPosRef.current = pos;
+                }
+              }}
+              onMouseUp={() => {
+                firmaIsDrawingRef.current = false;
+                firmaLastPosRef.current = null;
+              }}
+              onMouseLeave={() => {
+                firmaIsDrawingRef.current = false;
+                firmaLastPosRef.current = null;
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const pos = getPos(e);
+                if (pos) {
+                  firmaIsDrawingRef.current = true;
+                  firmaLastPosRef.current = pos;
+                }
+              }}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                if (!firmaIsDrawingRef.current) return;
+                const pos = getPos(e);
+                if (pos && firmaLastPosRef.current) {
+                  draw(firmaLastPosRef.current, pos);
+                  firmaLastPosRef.current = pos;
+                }
+              }}
+              onTouchEnd={() => {
+                firmaIsDrawingRef.current = false;
+                firmaLastPosRef.current = null;
+              }}
+              style={{ touchAction: 'none' }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { clearCanvas(); setFirmaMode('list'); }}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium ${
+                  isDark ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDraw}
+                disabled={firmaSaving}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 disabled:opacity-60"
+              >
+                {firmaSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Guardar firma
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="sr-only">
+        <input
+          ref={firmaFileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          aria-label="Cargar imagen de firma"
+        />
+      </div>
+    </div>
+  );
+}
 
 interface SettingsProps {
   onEditProfile?: () => void;
@@ -28,6 +364,23 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
   const [securityToast, setSecurityToast] = useState<{ type: 'warning' | 'success' | 'error'; message: string } | null>(null);
   const [securityLoading, setSecurityLoading] = useState(false);
 
+  const [savedFirmas, setSavedFirmas] = useState<ImageItem[]>([]);
+  const [savedFirmasLoading, setSavedFirmasLoading] = useState(false);
+  const [firmaMode, setFirmaMode] = useState<'list' | 'draw'>('list');
+  const [firmaSaving, setFirmaSaving] = useState(false);
+  const [deletingFirmaId, setDeletingFirmaId] = useState<string | null>(null);
+  const firmaCanvasRef = useRef<HTMLCanvasElement>(null);
+  const firmaFileInputRef = useRef<HTMLInputElement>(null);
+  const firmaIsDrawingRef = useRef(false);
+  const firmaLastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  const refreshSavedFirmas = useCallback(() => {
+    setSavedFirmasLoading(true);
+    listImages('firma', 20)
+      .then(setSavedFirmas)
+      .finally(() => setSavedFirmasLoading(false));
+  }, []);
+
   useEffect(() => {
     if (!showSavedToast || !onDismissSavedToast) return;
     const t = setTimeout(() => onDismissSavedToast(), 3500);
@@ -39,6 +392,12 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
     const t = setTimeout(() => setSecurityToast(null), 4500);
     return () => clearTimeout(t);
   }, [securityToast]);
+
+  useEffect(() => {
+    if (openSection === 'signature') {
+      refreshSavedFirmas();
+    }
+  }, [openSection, refreshSavedFirmas]);
 
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
@@ -80,6 +439,12 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
       title: 'Idioma y Región',
       icon: Globe,
       color: 'from-blue-400 to-blue-600'
+    },
+    {
+      id: 'signature',
+      title: 'Firma Profesional',
+      icon: PenLine,
+      color: 'from-teal-500 to-teal-600'
     }
   ];
 
@@ -455,6 +820,26 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
                         </p>
                       </div>
                     </div>
+                  )}
+
+                  {section.id === 'signature' && (
+                    <FirmaProfesionalSection
+                      isDark={isDark}
+                      savedFirmas={savedFirmas}
+                      savedFirmasLoading={savedFirmasLoading}
+                      firmaMode={firmaMode}
+                      setFirmaMode={setFirmaMode}
+                      firmaSaving={firmaSaving}
+                      setFirmaSaving={setFirmaSaving}
+                      deletingFirmaId={deletingFirmaId}
+                      setDeletingFirmaId={setDeletingFirmaId}
+                      refreshSavedFirmas={refreshSavedFirmas}
+                      firmaCanvasRef={firmaCanvasRef}
+                      firmaFileInputRef={firmaFileInputRef}
+                      firmaIsDrawingRef={firmaIsDrawingRef}
+                      firmaLastPosRef={firmaLastPosRef}
+                      setFirmaToast={(msg) => setSecurityToast({ type: 'success', message: msg })}
+                    />
                   )}
 
                   {section.id === 'language' && (

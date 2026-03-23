@@ -5,7 +5,7 @@ import { StudentProfile } from './StudentProfile.tsx';
 import { FollowupsTable } from './FollowupsTable';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { listarSeguimientos, getSeguimientoPorId, type SeguimientoListarResult } from '../lib/seguimiento';
+import { listarSeguimientos, getSeguimientoPorId, type SeguimientoListarResult, type SeguimientoDetalle } from '../lib/seguimiento';
 
 interface Student {
   id: number;
@@ -139,18 +139,24 @@ export function Followups({
   useEffect(() => {
     if (selectedStudent == null) {
       setProfileStudent(null);
+      setProfileSeguimiento(null);
       return;
     }
     let cancelled = false;
     setProfileLoading(true);
     setProfileStudent(null);
+    setProfileSeguimiento(null);
     getSeguimientoPorId(selectedStudent)
       .then((r) => {
         if (cancelled || !r) return;
         setProfileStudent(seguimientoToStudent(r));
+        setProfileSeguimiento(r);
       })
       .catch(() => {
-        if (!cancelled) setProfileStudent(null);
+        if (!cancelled) {
+          setProfileStudent(null);
+          setProfileSeguimiento(null);
+        }
       })
       .finally(() => {
         if (!cancelled) setProfileLoading(false);
@@ -159,6 +165,7 @@ export function Followups({
   }, [selectedStudent]);
 
   const [profileStudent, setProfileStudent] = useState<Student | null>(null);
+  const [profileSeguimiento, setProfileSeguimiento] = useState<SeguimientoDetalle | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'name' | 'email' | 'id' | 'program' | 'ficha'>('all');
@@ -285,7 +292,18 @@ export function Followups({
       return (
         <StudentProfile
           student={profileStudent}
-          onBack={() => { setSelectedStudent(null); setProfileStudent(null); }}
+          seguimiento={profileSeguimiento}
+          onBack={() => { setSelectedStudent(null); setProfileStudent(null); setProfileSeguimiento(null); }}
+          onSeguimientoUpdated={() => {
+            if (selectedStudent != null) {
+              getSeguimientoPorId(selectedStudent).then((r) => {
+                if (r) {
+                  setProfileStudent(seguimientoToStudent(r));
+                  setProfileSeguimiento(r);
+                }
+              });
+            }
+          }}
         />
       );
     }

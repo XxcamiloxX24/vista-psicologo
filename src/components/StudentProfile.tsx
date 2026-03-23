@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Calendar, BarChart3, ClipboardList, ListChecks, Pencil, Trash2, Plus, X } from 'lucide-react';
+import { ArrowLeft, Calendar, BarChart3, ClipboardList, ListChecks, Pencil, Trash2, Plus, X, Info, CheckCircle2, PenLine, Image, Upload, Loader2 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
@@ -12,6 +12,8 @@ import {
   type RecomendacionItem,
   type CrearRecomendacionPayload,
 } from '../lib/recomendacion';
+import { editarSeguimiento, ESTADOS_SEGUIMIENTO_API, type SeguimientoDetalle } from '../lib/seguimiento';
+import { uploadSignatureImage, listImages, deleteImage, type ImageItem } from '../lib/images';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -41,15 +43,109 @@ interface Student {
 
 interface StudentProfileProps {
   student: Student;
+  seguimiento?: SeguimientoDetalle | null;
   onBack: () => void;
+  onSeguimientoUpdated?: () => void;
 }
 
-type Tab = 'calendar' | 'charts' | 'test' | 'recommendations';
+type Tab = 'info' | 'calendar' | 'charts' | 'test' | 'recommendations';
 
-export function StudentProfile({ student, onBack }: StudentProfileProps) {
+function FirmaDisplayPlaceholder({
+  label,
+  isDark,
+  onAdd,
+}: {
+  label: string;
+  isDark: boolean;
+  onAdd?: () => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
+              isDark
+                ? 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+            }`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Agregar firma
+          </button>
+        )}
+      </div>
+      <div
+        className={`w-48 h-20 rounded-lg border-2 border-dashed flex items-center justify-center ${
+          isDark ? 'border-slate-600 bg-slate-700/30' : 'border-slate-300 bg-slate-50/80'
+        }`}
+      >
+        <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Sin firma</p>
+      </div>
+    </div>
+  );
+}
+
+function FirmaDisplay({
+  label,
+  url,
+  isDark,
+  onEdit,
+}: {
+  label: string;
+  url: string;
+  isDark: boolean;
+  onEdit?: () => void;
+}) {
+  const [error, setError] = useState(false);
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
+              isDark
+                ? 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+            }`}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Editar firma
+          </button>
+        )}
+      </div>
+      <div
+        className={`w-48 h-20 rounded-lg border-2 overflow-hidden flex items-center justify-center ${
+          isDark ? 'border-slate-600 bg-slate-700/50' : 'border-slate-200 bg-slate-50'
+        }`}
+      >
+        {error ? (
+          <p className={`text-xs text-center px-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Imagen no disponible
+          </p>
+        ) : (
+          <img
+            src={url}
+            alt={label}
+            className="max-w-full max-h-full object-contain"
+            onError={() => setError(true)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpdated }: StudentProfileProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  const [activeTab, setActiveTab] = useState<Tab>('calendar');
+  const [activeTab, setActiveTab] = useState<Tab>('info');
 
   const [recomendaciones, setRecomendaciones] = useState<RecomendacionItem[]>([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
@@ -57,8 +153,22 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
   const [modalCrearOpen, setModalCrearOpen] = useState(false);
   const [modalEditarOpen, setModalEditarOpen] = useState<RecomendacionItem | null>(null);
   const [modalEliminarOpen, setModalEliminarOpen] = useState<RecomendacionItem | null>(null);
+  const [finalizando, setFinalizando] = useState(false);
+  const [showConfirmFinalizar, setShowConfirmFinalizar] = useState(false);
+  const [showFirmaModal, setShowFirmaModal] = useState(false);
+  const [showEditarFirmaModal, setShowEditarFirmaModal] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editandoInfo, setEditandoInfo] = useState(false);
+  const [editForm, setEditForm] = useState({
+    descripcion: '',
+    motivo: '',
+    areaRemitido: '',
+    fechaInicio: '',
+    fechaFin: '',
+  });
 
   const tabs = [
+    { id: 'info' as Tab, label: 'Información', icon: Info },
     { id: 'calendar' as Tab, label: 'Calendario', icon: Calendar },
     { id: 'charts' as Tab, label: 'Gráficos', icon: BarChart3 },
     { id: 'test' as Tab, label: 'Test', icon: ClipboardList },
@@ -313,6 +423,242 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
 
             {/* Tab Content */}
             <div className="p-6">
+              {activeTab === 'info' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className={`text-lg font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>Información del seguimiento</h3>
+                    {seguimiento && !editingInfo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditForm({
+                            descripcion: seguimiento.descripcion?.trim() ?? '',
+                            motivo: seguimiento.motivo?.trim() ?? '',
+                            areaRemitido: seguimiento.areaRemitido?.trim() ?? '',
+                            fechaInicio: seguimiento.fechaInicioSeguimiento
+                              ? new Date(seguimiento.fechaInicioSeguimiento).toISOString().slice(0, 10)
+                              : '',
+                            fechaFin: seguimiento.fechaFinSeguimiento
+                              ? new Date(seguimiento.fechaFinSeguimiento).toISOString().slice(0, 10)
+                              : '',
+                          });
+                          setEditingInfo(true);
+                        }}
+                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                          isDark
+                            ? 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                        }`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Editar información
+                      </button>
+                    )}
+                  </div>
+                  {editingInfo ? (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!seguimiento || !student.id) return;
+                        setEditandoInfo(true);
+                        try {
+                          await editarSeguimiento(student.id, {
+                            segAprendizFk: seguimiento.segAprendizFk,
+                            segPsicologoFk: seguimiento.segPsicologoFk,
+                            segFechaSeguimiento: editForm.fechaInicio || undefined,
+                            segFechaFin: editForm.fechaFin || undefined,
+                            segAreaRemitido: editForm.areaRemitido || undefined,
+                            segTrimestreActual: seguimiento.trimestreActual ?? undefined,
+                            segMotivo: editForm.motivo || undefined,
+                            segDescripcion: editForm.descripcion || undefined,
+                            segEstadoSeguimiento: seguimiento.estadoSeguimiento ?? ESTADOS_SEGUIMIENTO_API.estable,
+                            segFirmaProfesional: seguimiento.firmaProfesional ?? undefined,
+                            segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
+                          });
+                          setEditingInfo(false);
+                          onSeguimientoUpdated?.();
+                        } catch (err) {
+                          alert(err instanceof Error ? err.message : 'Error al guardar los cambios');
+                        } finally {
+                          setEditandoInfo(false);
+                        }
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Descripción</label>
+                          <textarea
+                            value={editForm.descripcion}
+                            onChange={(e) => setEditForm((f) => ({ ...f, descripcion: e.target.value }))}
+                            rows={3}
+                            disabled={editandoInfo}
+                            className={`${inputBase} ${textareaBase} ${isDark ? inputDark : inputLight}`}
+                            placeholder="Descripción del seguimiento"
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Motivo</label>
+                          <textarea
+                            value={editForm.motivo}
+                            onChange={(e) => setEditForm((f) => ({ ...f, motivo: e.target.value }))}
+                            rows={3}
+                            disabled={editandoInfo}
+                            className={`${inputBase} ${textareaBase} ${isDark ? inputDark : inputLight}`}
+                            placeholder="Motivo del seguimiento"
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Área remitido</label>
+                          <input
+                            type="text"
+                            value={editForm.areaRemitido}
+                            onChange={(e) => setEditForm((f) => ({ ...f, areaRemitido: e.target.value }))}
+                            disabled={editandoInfo}
+                            className={`${inputBase} ${isDark ? inputDark : inputLight}`}
+                            placeholder="Ej: Sistemas, Administración"
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha inicio</label>
+                          <input
+                            type="date"
+                            value={editForm.fechaInicio}
+                            onChange={(e) => setEditForm((f) => ({ ...f, fechaInicio: e.target.value }))}
+                            disabled={editandoInfo}
+                            className={`${inputBase} ${isDark ? inputDark : inputLight}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha fin</label>
+                          <input
+                            type="date"
+                            value={editForm.fechaFin}
+                            onChange={(e) => setEditForm((f) => ({ ...f, fechaFin: e.target.value }))}
+                            disabled={editandoInfo}
+                            className={`${inputBase} ${isDark ? inputDark : inputLight}`}
+                            placeholder="Dejar vacío si no está finalizado"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingInfo(false)}
+                          disabled={editandoInfo}
+                          className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
+                            isDark
+                              ? 'bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50'
+                          }`}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={editandoInfo}
+                          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-60 transition-all"
+                        >
+                          {editandoInfo ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Guardando…
+                            </>
+                          ) : (
+                            'Guardar cambios'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                  <div className={`grid gap-4 sm:grid-cols-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                    <div>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Descripción</p>
+                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        {seguimiento?.descripcion?.trim() || '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Motivo</p>
+                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        {seguimiento?.motivo?.trim() || '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Área remitido</p>
+                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        {seguimiento?.areaRemitido?.trim() || '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha inicio</p>
+                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        {seguimiento?.fechaInicioSeguimiento
+                          ? new Date(seguimiento.fechaInicioSeguimiento).toLocaleDateString('es-CO', { dateStyle: 'long' })
+                          : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha fin</p>
+                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                        {seguimiento?.fechaFinSeguimiento
+                          ? new Date(seguimiento.fechaFinSeguimiento).toLocaleDateString('es-CO', { dateStyle: 'long' })
+                          : 'Sin finalizar'}
+                      </p>
+                    </div>
+                  </div>
+                  )}
+                  <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      {seguimiento?.firmaProfesional ? (
+                        <FirmaDisplay
+                          label="Firma del profesional"
+                          url={seguimiento.firmaProfesional}
+                          isDark={isDark}
+                          onEdit={() => setShowEditarFirmaModal(true)}
+                        />
+                      ) : (
+                        <FirmaDisplayPlaceholder
+                          label="Firma del profesional"
+                          isDark={isDark}
+                          onAdd={() => setShowEditarFirmaModal(true)}
+                        />
+                      )}
+                    </div>
+                    <div>
+                      {seguimiento?.firmaAprendiz ? (
+                        <FirmaDisplay
+                          label="Firma del aprendiz"
+                          url={seguimiento.firmaAprendiz}
+                          isDark={isDark}
+                        />
+                      ) : (
+                        <FirmaDisplayPlaceholder
+                          label="Firma del aprendiz"
+                          isDark={isDark}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {!seguimiento?.fechaFinSeguimiento && (
+                    <div className="pt-4">
+                      <Button
+                        disabled={finalizando}
+                        onClick={() => setShowConfirmFinalizar(true)}
+                        className={`flex items-center gap-2 min-h-[48px] rounded-xl px-6 py-3 text-sm font-medium text-white disabled:opacity-60 transition-all ${
+                          isDark
+                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-lg'
+                            : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-md hover:shadow-lg'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Finalizar seguimiento
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'calendar' && (
                 <div>
                   <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Registro Emocional</h3>
@@ -626,6 +972,159 @@ export function StudentProfile({ student, onBack }: StudentProfileProps) {
           isDark={isDark}
         />
       )}
+
+      {/* Modal Confirmar Finalizar Seguimiento */}
+      {showConfirmFinalizar &&
+        createPortal(
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{
+              zIndex: 2147483648,
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(6px)',
+            }}
+            onClick={() => setShowConfirmFinalizar(false)}
+          >
+            <div
+              className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+              style={{
+                backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                border: isDark ? '1px solid rgba(100,116,139,0.4)' : '1px solid rgba(216,180,254,0.3)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4">
+                <h2 className="text-lg font-semibold text-white">Finalizar seguimiento</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>
+                  ¿Deseas finalizar el seguimiento de{' '}
+                  <span className="font-semibold">{student.name}</span>? A continuación deberás firmar como profesional.
+                </p>
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmFinalizar(false)}
+                    className={`flex-1 min-h-[48px] rounded-xl border px-4 py-3 text-sm font-medium transition-colors ${
+                      isDark
+                        ? 'border-slate-500 text-slate-200 hover:bg-slate-700/80'
+                        : 'border-purple-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowConfirmFinalizar(false);
+                      setShowFirmaModal(true);
+                    }}
+                    className="flex-1 min-h-[48px] rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 text-sm font-medium text-white hover:shadow-lg transition-all"
+                  >
+                    Sí, continuar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Modal Firma del Profesional (finalizar) */}
+      {showFirmaModal && (
+        <ModalFirmaFinalizar
+          isDark={isDark}
+          studentName={student.name}
+          onClose={() => setShowFirmaModal(false)}
+          onSuccess={async (firmaUrl: string) => {
+            if (!seguimiento || !student.id) return;
+            setFinalizando(true);
+            try {
+              const now = new Date().toISOString();
+              await editarSeguimiento(student.id, {
+                segAprendizFk: seguimiento.segAprendizFk,
+                segPsicologoFk: seguimiento.segPsicologoFk,
+                segFechaSeguimiento: seguimiento.fechaInicioSeguimiento ?? undefined,
+                segFechaFin: now,
+                segAreaRemitido: seguimiento.areaRemitido ?? undefined,
+                segTrimestreActual: seguimiento.trimestreActual ?? undefined,
+                segMotivo: seguimiento.motivo ?? undefined,
+                segDescripcion: seguimiento.descripcion ?? undefined,
+                segEstadoSeguimiento: ESTADOS_SEGUIMIENTO_API.estable,
+                segFirmaProfesional: firmaUrl,
+                segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
+              });
+              setShowFirmaModal(false);
+              onSeguimientoUpdated?.();
+            } catch (e) {
+              alert(e instanceof Error ? e.message : 'Error al finalizar');
+            } finally {
+              setFinalizando(false);
+            }
+          }}
+          finalizando={finalizando}
+        />
+      )}
+
+      {/* Modal Editar Firma del Profesional */}
+      {showEditarFirmaModal && (
+        <ModalFirmaFinalizar
+          isDark={isDark}
+          studentName={student.name}
+          onClose={() => setShowEditarFirmaModal(false)}
+          title="Editar firma del profesional"
+          description={`Actualiza tu firma para el seguimiento de ${student.name}.`}
+          confirmLabel="Guardar cambios"
+          loadingLabel="Guardando…"
+          onImageDeleted={async (deletedUrl) => {
+            if (!seguimiento || !student.id || seguimiento.firmaProfesional !== deletedUrl) return;
+            try {
+              await editarSeguimiento(student.id, {
+                segAprendizFk: seguimiento.segAprendizFk,
+                segPsicologoFk: seguimiento.segPsicologoFk,
+                segFechaSeguimiento: seguimiento.fechaInicioSeguimiento ?? undefined,
+                segFechaFin: seguimiento.fechaFinSeguimiento ?? undefined,
+                segAreaRemitido: seguimiento.areaRemitido ?? undefined,
+                segTrimestreActual: seguimiento.trimestreActual ?? undefined,
+                segMotivo: seguimiento.motivo ?? undefined,
+                segDescripcion: seguimiento.descripcion ?? undefined,
+                segEstadoSeguimiento: seguimiento.estadoSeguimiento ?? ESTADOS_SEGUIMIENTO_API.estable,
+                segFirmaProfesional: '',
+                segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
+              });
+              onSeguimientoUpdated?.();
+            } catch {
+              /* ya mostramos error en el delete */
+            }
+          }}
+          onSuccess={async (firmaUrl: string) => {
+            if (!seguimiento || !student.id) return;
+            setFinalizando(true);
+            try {
+              await editarSeguimiento(student.id, {
+                segAprendizFk: seguimiento.segAprendizFk,
+                segPsicologoFk: seguimiento.segPsicologoFk,
+                segFechaSeguimiento: seguimiento.fechaInicioSeguimiento ?? undefined,
+                segFechaFin: seguimiento.fechaFinSeguimiento ?? undefined,
+                segAreaRemitido: seguimiento.areaRemitido ?? undefined,
+                segTrimestreActual: seguimiento.trimestreActual ?? undefined,
+                segMotivo: seguimiento.motivo ?? undefined,
+                segDescripcion: seguimiento.descripcion ?? undefined,
+                segEstadoSeguimiento: seguimiento.estadoSeguimiento ?? ESTADOS_SEGUIMIENTO_API.estable,
+                segFirmaProfesional: firmaUrl,
+                segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
+              });
+              setShowEditarFirmaModal(false);
+              onSeguimientoUpdated?.();
+            } catch (e) {
+              alert(e instanceof Error ? e.message : 'Error al actualizar la firma');
+            } finally {
+              setFinalizando(false);
+            }
+          }}
+          finalizando={finalizando}
+        />
+      )}
     </div>
   );
 }
@@ -803,6 +1302,432 @@ function ModalCrearRecomendacion({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+}
+
+type FirmaMode = 'draw' | 'saved' | 'upload';
+
+function ModalFirmaFinalizar({
+  isDark,
+  studentName,
+  onClose,
+  onSuccess,
+  onImageDeleted,
+  finalizando,
+  title = 'Firma del profesional',
+  description,
+  confirmLabel = 'Confirmar y finalizar',
+  loadingLabel = 'Finalizando…',
+}: {
+  isDark: boolean;
+  studentName: string;
+  onClose: () => void;
+  onSuccess: (firmaUrl: string) => Promise<void>;
+  onImageDeleted?: (deletedUrl: string) => Promise<void>;
+  finalizando: boolean;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
+  loadingLabel?: string;
+}) {
+  const desc = description ?? `Elige cómo firmar para finalizar el seguimiento de ${studentName}.`;
+  const [mode, setMode] = useState<FirmaMode>('draw');
+  const [savedFirmas, setSavedFirmas] = useState<ImageItem[]>([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [selectedSavedUrl, setSelectedSavedUrl] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshSavedFirmas = useCallback(() => {
+    setSavedLoading(true);
+    listImages('firma', 20)
+      .then((list) => {
+        setSavedFirmas(list);
+        setSelectedSavedUrl((prev) => {
+          if (!prev) return null;
+          const stillExists = list.some((i) => (i.secureUrl ?? i.url) === prev);
+          return stillExists ? prev : null;
+        });
+      })
+      .finally(() => setSavedLoading(false));
+  }, []);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (mode === 'saved') {
+      refreshSavedFirmas();
+      setSelectedSavedUrl(null);
+    } else if (mode === 'upload') {
+      setUploadedUrl(null);
+    }
+  }, [mode, refreshSavedFirmas]);
+
+  useEffect(() => {
+    if (mode !== 'draw') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const init = () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = isDark ? '#ffffff' : '#1e293b';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.fillStyle = isDark ? '#334155' : '#f8fafc';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    };
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(init);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [isDark, mode]);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in e) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const draw = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  };
+
+  const onPointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const pos = getPos(e);
+    if (!pos) return;
+    isDrawingRef.current = true;
+    lastPosRef.current = pos;
+  };
+
+  const onPointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!isDrawingRef.current) return;
+    const pos = getPos(e);
+    if (!pos || !lastPosRef.current) return;
+    draw(lastPosRef.current, pos);
+    lastPosRef.current = pos;
+  };
+
+  const onPointerUp = () => {
+    isDrawingRef.current = false;
+    lastPosRef.current = null;
+  };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = isDark ? '#334155' : '#f8fafc';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  };
+
+  const handleConfirmDraw = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          alert('No se pudo generar la imagen de la firma. Intenta de nuevo.');
+          return;
+        }
+        const file = new File([blob], 'firma.png', { type: 'image/png' });
+        try {
+          const url = await uploadSignatureImage(file);
+          await onSuccess(url);
+        } catch (e) {
+          alert(e instanceof Error ? e.message : 'Error al subir la firma');
+        }
+      },
+      'image/png',
+      0.95
+    );
+  };
+
+  const handleConfirmSaved = () => {
+    if (selectedSavedUrl) onSuccess(selectedSavedUrl);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    try {
+      const url = await uploadSignatureImage(file);
+      setUploadedUrl(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al subir la imagen');
+    }
+    e.target.value = '';
+  };
+
+  const handleConfirmUpload = () => {
+    if (uploadedUrl) onSuccess(uploadedUrl);
+  };
+
+  const canConfirm =
+    (mode === 'draw') ||
+    (mode === 'saved' && selectedSavedUrl) ||
+    (mode === 'upload' && uploadedUrl);
+
+  const handleConfirm = () => {
+    if (mode === 'draw') handleConfirmDraw();
+    else if (mode === 'saved') handleConfirmSaved();
+    else if (mode === 'upload') handleConfirmUpload();
+  };
+
+  const tabClass = (m: FirmaMode) =>
+    `flex items-center gap-2 flex-1 justify-center min-h-[44px] rounded-lg text-sm font-medium transition-all shrink-0 ${
+      mode === m
+        ? isDark
+          ? 'bg-purple-600 text-white shadow-md'
+          : 'bg-purple-100 text-purple-700 border border-purple-200'
+        : isDark
+          ? 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600'
+          : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800 border border-slate-200'
+    }`;
+
+  const btnSecundario = `flex-1 min-h-[48px] rounded-xl border-2 px-4 py-3 text-sm font-medium transition-colors ${
+    isDark
+      ? 'border-slate-500 bg-slate-700/80 text-slate-100 hover:bg-slate-600 hover:border-slate-400'
+      : 'border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:border-slate-400'
+  }`;
+
+  const modalContent = (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{
+        zIndex: 2147483648,
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(6px)',
+      }}
+      onClick={() => !finalizando && onClose()}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        style={{
+          backgroundColor: isDark ? '#1e293b' : '#ffffff',
+          border: isDark ? '1px solid rgba(100,116,139,0.4)' : '1px solid rgba(216,180,254,0.3)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          <button
+            type="button"
+            onClick={() => !finalizando && onClose()}
+            className="p-2 rounded-lg text-white/90 hover:text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+            {desc}
+          </p>
+
+          <div
+            className={`flex gap-2 p-1.5 rounded-xl ${
+              isDark
+                ? 'bg-slate-800/60 border border-slate-600'
+                : 'bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <button type="button" onClick={() => setMode('draw')} className={tabClass('draw')}>
+              <PenLine className="w-4 h-4 shrink-0" />
+              <span>Dibujar</span>
+            </button>
+            <button type="button" onClick={() => setMode('saved')} className={tabClass('saved')}>
+              <Image className="w-4 h-4 shrink-0" />
+              <span>Usar guardada</span>
+            </button>
+            <button type="button" onClick={() => setMode('upload')} className={tabClass('upload')}>
+              <Upload className="w-4 h-4 shrink-0" />
+              <span>Cargar imagen</span>
+            </button>
+          </div>
+
+          {mode === 'draw' && (
+            <canvas
+              ref={canvasRef}
+              className={`w-full h-40 rounded-xl border-2 cursor-crosshair touch-none ${
+                isDark ? 'border-slate-500 bg-slate-700/50' : 'border-slate-200 bg-slate-50'
+              }`}
+              onMouseDown={onPointerDown}
+              onMouseMove={onPointerMove}
+              onMouseUp={onPointerUp}
+              onMouseLeave={onPointerUp}
+              onTouchStart={onPointerDown}
+              onTouchMove={onPointerMove}
+              onTouchEnd={onPointerUp}
+              style={{ touchAction: 'none' }}
+            />
+          )}
+
+          {mode === 'saved' && (
+            <div
+              className={`min-h-[10rem] rounded-xl border-2 p-4 ${
+                isDark ? 'border-slate-600 bg-slate-800/50' : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              {savedLoading ? (
+                <p className={`text-sm text-center py-8 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Cargando firmas guardadas…
+                </p>
+              ) : savedFirmas.length === 0 ? (
+                <p className={`text-sm text-center py-8 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                  No tienes firmas guardadas. Dibuja una o carga una imagen para guardarla.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {savedFirmas.map((img) => {
+                    const url = img.secureUrl ?? img.url ?? '';
+                    const sel = selectedSavedUrl === url;
+                    const isDeleting = deletingId === img._id;
+                    return (
+                      <div
+                        key={img._id}
+                        className={`relative aspect-square rounded-lg border-2 overflow-visible bg-white dark:bg-slate-800 transition-all ${
+                          sel
+                            ? 'border-purple-500 ring-2 ring-purple-500'
+                            : isDark
+                              ? 'border-slate-600 hover:border-slate-500'
+                              : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        style={sel ? { boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.6), 0 4px 14px rgba(139, 92, 246, 0.35)' } : undefined}
+                      >
+                        <div className="absolute inset-0 rounded-lg overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSavedUrl(url)}
+                            className="absolute inset-0 w-full h-full flex items-center justify-center p-1 bg-transparent"
+                          >
+                            <img src={url} alt="Firma guardada" className="max-w-full max-h-full object-contain" />
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (isDeleting) return;
+                            setDeletingId(img._id);
+                            try {
+                              await deleteImage(img._id);
+                              if (selectedSavedUrl === url) setSelectedSavedUrl(null);
+                              await onImageDeleted?.(url);
+                              refreshSavedFirmas();
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : 'Error al eliminar');
+                            } finally {
+                              setDeletingId(null);
+                            }
+                          }}
+                          disabled={isDeleting}
+                          title="Eliminar firma"
+                          style={{ backgroundColor: 'gray' }}
+                          className="absolute -top-1 -right-1 z-20 w-5 h-5 flex items-center justify-center p-2 text-white border-2 border-white drop-shadow-lg hover:brightness-110 disabled:opacity-60"
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                          ) : (
+                            <X className="w-5 h-5 shrink-0" strokeWidth={2.5} />
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === 'upload' && (
+            <div
+              className={`min-h-[10rem] rounded-xl border-2 border-dashed p-6 flex flex-col items-center justify-center gap-3 ${
+                isDark ? 'border-slate-600 bg-slate-800/50' : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {uploadedUrl ? (
+                <div className="w-full space-y-2">
+                  <div className="aspect-video rounded-lg overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600">
+                    <img src={uploadedUrl} alt="Imagen cargada" className="w-full h-full object-contain" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`text-sm ${isDark ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'}`}
+                  >
+                    Cambiar imagen
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Upload className={`w-12 h-12 shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                  <p className={`text-sm text-center ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Selecciona una imagen de tu firma
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={finalizando}
+                    className="min-h-[44px] px-6 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg transition-all disabled:opacity-60"
+                  >
+                    Seleccionar archivo
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+            <button type="button" onClick={() => !finalizando && onClose()} className={btnSecundario}>
+              Cancelar
+            </button>
+            {mode === 'draw' && (
+              <button type="button" onClick={clearCanvas} disabled={finalizando} className={btnSecundario}>
+                Limpiar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={finalizando || !canConfirm}
+              className="flex-1 min-h-[48px] rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 text-sm font-medium text-white hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {finalizando ? loadingLabel : confirmLabel}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
