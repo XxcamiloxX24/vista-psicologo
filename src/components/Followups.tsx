@@ -25,6 +25,8 @@ interface Student {
   formaModalidad?: string;
   /** Estado de formación de la ficha: en ejecucion, cancelada, terminada, etc. */
   estadoFormacion?: string;
+  /** Código del aprendiz en la API (estadísticas de diario, etc.). */
+  aprendizId?: number;
 }
 
 function mapEstadoToStatus(estado: string): 'stable' | 'observation' | 'critical' {
