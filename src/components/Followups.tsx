@@ -94,6 +94,8 @@ function seguimientoToStudent(r: SeguimientoListarResult): Student {
   const segCodigo = r.segCodigo ?? (r as unknown as Record<string, unknown>).SegCodigo;
   const estado = r.estadoSeguimiento ?? (r as unknown as Record<string, unknown>).EstadoSeguimiento;
 
+  const aprendizCodigo = getVal<number>(apr, 'codigo', 'Codigo');
+
   return {
     id: Number(segCodigo ?? 0),
     name,
@@ -110,6 +112,7 @@ function seguimientoToStudent(r: SeguimientoListarResult): Student {
     modalidad: modalidad || undefined,
     formaModalidad: formaModalidad || undefined,
     estadoFormacion: estadoFormacion || undefined,
+    aprendizId: aprendizCodigo ?? undefined,
   };
 }
 
@@ -184,6 +187,8 @@ export function Followups({
   const [cardsTotalPages, setCardsTotalPages] = useState(0);
   const [cardsTotalRegistros, setCardsTotalRegistros] = useState(0);
   const [cardsLoading, setCardsLoading] = useState(true);
+  /** Incrementar tras eliminar un seguimiento para volver a cargar tabla/cards. */
+  const [listBumpAfterDelete, setListBumpAfterDelete] = useState(0);
   useEffect(() => {
     if (viewMode !== 'table') return;
     let cancelled = false;
@@ -203,7 +208,7 @@ export function Followups({
         if (!cancelled) setTableLoading(false);
       });
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [viewMode, tablePage, tablePageSize, parentListRefreshKey]);
+  }, [viewMode, tablePage, tablePageSize, parentListRefreshKey, listBumpAfterDelete]);
 
   useEffect(() => {
     if (viewMode !== 'cards') return;
@@ -227,7 +232,7 @@ export function Followups({
         if (!cancelled) setCardsLoading(false);
       });
     return () => { cancelled = true; clearTimeout(tid); };
-  }, [viewMode, cardsPage, cardsPageSize, parentListRefreshKey]);
+  }, [viewMode, cardsPage, cardsPageSize, parentListRefreshKey, listBumpAfterDelete]);
 
   const students = cardsData.map(seguimientoToStudent);
 
@@ -303,6 +308,12 @@ export function Followups({
                 }
               });
             }
+          }}
+          onSeguimientoDeleted={() => {
+            setSelectedStudent(null);
+            setProfileStudent(null);
+            setProfileSeguimiento(null);
+            setListBumpAfterDelete((b) => b + 1);
           }}
         />
       );

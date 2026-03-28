@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell, LayoutGrid } from 'lucide-react';
+import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell, LayoutGrid, SmilePlus } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
@@ -15,6 +15,7 @@ type Section =
   | 'cards-info'
   | 'cards-info-detail'
   | 'cards-info-create'
+  | 'emotions-manager'
   | 'about'
   | 'settings'
   | 'profile-edit';
@@ -43,6 +44,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
     { id: 'followups' as Section, label: 'Seguimientos', icon: Activity },
     { id: 'students' as Section, label: 'Fichas', icon: Users },
     { id: 'cards-info' as Section, label: 'Tarjetas informativas', icon: LayoutGrid },
+    { id: 'emotions-manager' as Section, label: 'Emociones', icon: SmilePlus },
     { id: 'about' as Section, label: 'Sobre Nosotros', icon: Info },
   ];
 

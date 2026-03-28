@@ -161,6 +161,24 @@ export async function editarSeguimiento(id: number, payload: EditarSeguimientoPa
   return response.json();
 }
 
+/** Marca el seguimiento como inactivo (PUT eliminar/{id}). */
+export async function eliminarSeguimiento(id: number): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/SeguimientoAprendiz/eliminar/${id}`, {
+    method: 'PUT',
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text || 'No se pudo eliminar el seguimiento';
+    try {
+      const j = JSON.parse(text) as { message?: string; title?: string };
+      if (j.message) message = j.message;
+    } catch {
+      /* texto plano */
+    }
+    throw new Error(message);
+  }
+}
+
 /** Valores exactos que acepta la API (EstadosSeguimiento.Normalizar) */
 export const ESTADOS_SEGUIMIENTO_API = {
   estable: 'Estables',

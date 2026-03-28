@@ -1,6 +1,23 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Calendar, BarChart3, ClipboardList, ListChecks, Pencil, Trash2, Plus, X, Info, CheckCircle2, PenLine, Image, Upload, Loader2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Calendar,
+  BarChart3,
+  ClipboardList,
+  ListChecks,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  Info,
+  CheckCircle2,
+  PenLine,
+  Image,
+  Upload,
+  Loader2,
+} from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
@@ -12,7 +29,13 @@ import {
   type RecomendacionItem,
   type CrearRecomendacionPayload,
 } from '../lib/recomendacion';
-import { editarSeguimiento, ESTADOS_SEGUIMIENTO_API, type SeguimientoDetalle } from '../lib/seguimiento';
+import { editarSeguimiento, eliminarSeguimiento, ESTADOS_SEGUIMIENTO_API, type SeguimientoDetalle } from '../lib/seguimiento';
+import {
+  getEstadisticaEmocionalMensual,
+  getTendenciaEmocional,
+  type EstadisticaMensualResponse,
+  type TendenciaResponse,
+} from '../lib/emociones';
 import { uploadSignatureImage, listImages, deleteImage, type ImageItem } from '../lib/images';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -37,8 +60,9 @@ interface Student {
   nivelFormacion?: string;
   modalidad?: string;
   formaModalidad?: string;
-  /** Estado de formación de la ficha: en ejecucion, cancelada, terminada, etc. */
   estadoFormacion?: string;
+  /** Código real del aprendiz en la tabla aprendiz (para estadísticas de diario). */
+  aprendizId?: number;
 }
 
 interface StudentProfileProps {
@@ -46,6 +70,8 @@ interface StudentProfileProps {
   seguimiento?: SeguimientoDetalle | null;
   onBack: () => void;
   onSeguimientoUpdated?: () => void;
+  /** Tras eliminar con éxito (cerrar detalle y refrescar listas en el padre). */
+  onSeguimientoDeleted?: () => void;
 }
 
 type Tab = 'info' | 'calendar' | 'charts' | 'test' | 'recommendations';
@@ -142,9 +168,88 @@ function FirmaDisplay({
   );
 }
 
-export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpdated }: StudentProfileProps) {
+/** Campos de solo lectura en la pestaña Información (layout tipo tarjeta). */
+function SeguimientoReadonlyField({
+  label,
+  value,
+  isDark,
+  className = '',
+}: {
+  label: string;
+  value: ReactNode;
+  isDark: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <p
+        className={`mb-1.5 text-[11px] font-semibold uppercase tracking-wider ${
+          isDark ? 'text-slate-400' : 'text-slate-500'
+        }`}
+      >
+        {label}
+      </p>
+      <div
+        className={`min-h-[2.75rem] rounded-xl border px-4 py-3 text-sm leading-relaxed ${
+          isDark
+            ? 'border-slate-600/90 bg-slate-800/95 text-slate-100 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]'
+            : 'border-slate-100 bg-white text-slate-800 shadow-sm'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/** Estilos inline en oscuro: el preflight pone button { background transparent; color inherit } y anula utilidades. */
+const chipEditDarkStyle: CSSProperties = {
+  backgroundColor: 'rgba(180, 83, 9, 0.58)',
+  border: '1px solid rgba(250, 204, 21, 0.8)',
+  color: '#fffbeb',
+  borderRadius: 9999,
+};
+
+const chipDeleteDarkStyle: CSSProperties = {
+  backgroundColor: 'rgba(153, 27, 27, 0.55)',
+  border: '1px solid rgba(252, 165, 165, 0.75)',
+  color: '#fecaca',
+  borderRadius: 9999,
+};
+
+/** Preflight anula bg/color en <button>; el modal de eliminar debe usar estilos explícitos. */
+const modalCancelBtnLight: CSSProperties = {
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  border: '1px solid #cbd5e1',
+  borderRadius: 12,
+};
+
+const modalCancelBtnDark: CSSProperties = {
+  backgroundColor: 'rgba(51, 65, 85, 0.55)',
+  color: '#f1f5f9',
+  border: '1px solid #64748b',
+  borderRadius: 12,
+};
+
+const modalDangerConfirmBtnStyle: CSSProperties = {
+  background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: 12,
+  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.4)',
+};
+
+export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpdated, onSeguimientoDeleted }: StudentProfileProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const nombreSeguimientoModal = (() => {
+    const n = student.name?.trim() ?? '';
+    if (n && n !== '—' && n !== '-') return n;
+    const f = student.ficha?.trim();
+    if (f) return `aprendiz (ficha ${f})`;
+    return 'este aprendiz';
+  })();
   const [activeTab, setActiveTab] = useState<Tab>('info');
 
   const [recomendaciones, setRecomendaciones] = useState<RecomendacionItem[]>([]);
@@ -155,6 +260,8 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
   const [modalEliminarOpen, setModalEliminarOpen] = useState<RecomendacionItem | null>(null);
   const [finalizando, setFinalizando] = useState(false);
   const [showConfirmFinalizar, setShowConfirmFinalizar] = useState(false);
+  const [showConfirmEliminarSeguimiento, setShowConfirmEliminarSeguimiento] = useState(false);
+  const [eliminandoSeguimiento, setEliminandoSeguimiento] = useState(false);
   const [showFirmaModal, setShowFirmaModal] = useState(false);
   const [showEditarFirmaModal, setShowEditarFirmaModal] = useState(false);
   const [editingInfo, setEditingInfo] = useState(false);
@@ -195,40 +302,57 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
     }
   }, [activeTab, cargarRecomendaciones]);
 
-  const emotionalData = [
-    { date: '2025-12-01', emotion: 'positive', label: 'Positiva' },
-    { date: '2025-12-02', emotion: 'positive', label: 'Positiva' },
-    { date: '2025-12-03', emotion: 'neutral', label: 'Neutral' },
-    { date: '2025-12-04', emotion: 'negative', label: 'Negativa' },
-    { date: '2025-12-05', emotion: 'positive', label: 'Positiva' },
+  /* ── Estadísticas emocionales (reales desde API) ── */
+  const [emoMensual, setEmoMensual] = useState<EstadisticaMensualResponse | null>(null);
+  const [emoTendencia, setEmoTendencia] = useState<TendenciaResponse | null>(null);
+  const [emoLoading, setEmoLoading] = useState(false);
+  const now = new Date();
+  const [emoAnio, setEmoAnio] = useState(now.getFullYear());
+  const [emoMes, setEmoMes] = useState(now.getMonth() + 1);
+
+  useEffect(() => {
+    if (!student.aprendizId) return;
+    if (activeTab !== 'calendar' && activeTab !== 'charts') return;
+    let cancelled = false;
+    setEmoLoading(true);
+    Promise.all([
+      getEstadisticaEmocionalMensual(student.aprendizId, emoAnio, emoMes),
+      getTendenciaEmocional(student.aprendizId, 6),
+    ]).then(([mensual, tendencia]) => {
+      if (cancelled) return;
+      setEmoMensual(mensual);
+      setEmoTendencia(tendencia);
+    }).finally(() => { if (!cancelled) setEmoLoading(false); });
+    return () => { cancelled = true; };
+  }, [student.aprendizId, activeTab, emoAnio, emoMes]);
+
+  const diasMap = new Map((emoMensual?.dias ?? []).map(d => [new Date(d.fecha).getDate(), d]));
+  const resumen = emoMensual?.resumen ?? { positivas: 0, neutrales: 0, negativas: 0, criticas: 0, promedioEscala: 0, totalDias: 0 };
+  const totalCat = resumen.positivas + resumen.neutrales + resumen.negativas + resumen.criticas || 1;
+  const pct = (v: number) => `${Math.round((v / totalCat) * 100)}%`;
+
+  const emotionalEvolutionData = (emoTendencia?.tendencia ?? []).map(t => ({
+    day: t.mesNombre,
+    score: t.promedioEscala,
+  }));
+
+  const emotionalDistributionData = [
+    { name: 'Positiva', value: resumen.positivas, color: '#22c55e' },
+    { name: 'Neutral', value: resumen.neutrales, color: '#eab308' },
+    { name: 'Negativa', value: resumen.negativas, color: '#f97316' },
+    { name: 'Crítica', value: resumen.criticas, color: '#ef4444' },
   ];
 
-  // Data for charts
-  const emotionalEvolutionData = [
-    { day: 'Lun', score: 6.5 },
-    { day: 'Mar', score: 7.0 },
-    { day: 'Mié', score: 5.5 },
-    { day: 'Jue', score: 8.0 },
-    { day: 'Vie', score: 7.5 },
-    { day: 'Sáb', score: 8.5 },
-    { day: 'Dom', score: 9.0 }
-  ];
+  /** Solo categorías con días > 0: evita segmentos invisibles y etiquetas superpuestas en Recharts. */
+  const pieDistributionData = emotionalDistributionData.filter((d) => d.value > 0);
 
   const sessionAttendanceData = [
     { month: 'Ago', asistidas: 4, programadas: 4 },
     { month: 'Sep', asistidas: 3, programadas: 4 },
     { month: 'Oct', asistidas: 4, programadas: 4 },
     { month: 'Nov', asistidas: 4, programadas: 5 },
-    { month: 'Dic', asistidas: 2, programadas: 3 }
+    { month: 'Dic', asistidas: 2, programadas: 3 },
   ];
-
-  const emotionalDistributionData = [
-    { name: 'Positiva', value: 18, color: '#22c55e' },
-    { name: 'Neutral', value: 9, color: '#eab308' },
-    { name: 'Negativa', value: 3, color: '#f97316' }
-  ];
-
-  const COLORS = ['#22c55e', '#eab308', '#f97316'];
 
   const getEstadoFormacionLabel = (estado?: string): string => {
     if (!estado?.trim()) return '';
@@ -275,14 +399,14 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
     return isDark ? { style: { backgroundColor: '#475569', color: '#e2e8f0' } } : { className: 'bg-slate-100 text-slate-700' };
   };
 
-  const getEmotionColor = (emotion: string) => {
-    const colors = {
-      positive: 'bg-green-500',
-      neutral: 'bg-yellow-500',
-      negative: 'bg-orange-500',
-      critical: 'bg-red-500'
-    };
-    return colors[emotion as keyof typeof colors];
+  const getEmotionBg = (cat: string) => {
+    switch (cat) {
+      case 'Positiva': return 'bg-green-500';
+      case 'Neutral':  return 'bg-yellow-500';
+      case 'Negativa': return 'bg-orange-500';
+      case 'Critica':  return 'bg-red-500';
+      default: return '';
+    }
   };
 
   return (
@@ -425,34 +549,58 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
             <div className="p-6">
               {activeTab === 'info' && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <h3 className={`text-lg font-medium ${isDark ? 'text-white' : 'text-slate-800'}`}>Información del seguimiento</h3>
                     {seguimiento && !editingInfo && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditForm({
-                            descripcion: seguimiento.descripcion?.trim() ?? '',
-                            motivo: seguimiento.motivo?.trim() ?? '',
-                            areaRemitido: seguimiento.areaRemitido?.trim() ?? '',
-                            fechaInicio: seguimiento.fechaInicioSeguimiento
-                              ? new Date(seguimiento.fechaInicioSeguimiento).toISOString().slice(0, 10)
-                              : '',
-                            fechaFin: seguimiento.fechaFinSeguimiento
-                              ? new Date(seguimiento.fechaFinSeguimiento).toISOString().slice(0, 10)
-                              : '',
-                          });
-                          setEditingInfo(true);
-                        }}
-                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                          isDark
-                            ? 'text-slate-300 hover:bg-slate-700 hover:text-white'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-                        }`}
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Editar información
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditForm({
+                              descripcion: seguimiento.descripcion?.trim() ?? '',
+                              motivo: seguimiento.motivo?.trim() ?? '',
+                              areaRemitido: seguimiento.areaRemitido?.trim() ?? '',
+                              fechaInicio: seguimiento.fechaInicioSeguimiento
+                                ? new Date(seguimiento.fechaInicioSeguimiento).toISOString().slice(0, 10)
+                                : '',
+                              fechaFin: seguimiento.fechaFinSeguimiento
+                                ? new Date(seguimiento.fechaFinSeguimiento).toISOString().slice(0, 10)
+                                : '',
+                            });
+                            setEditingInfo(true);
+                          }}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                            isDark
+                              ? 'shadow-md shadow-amber-950/40 hover:brightness-110'
+                              : 'rounded-full border border-yellow-300 bg-yellow-50 text-yellow-800 hover:bg-yellow-100/90'
+                          }`}
+                          style={isDark ? chipEditDarkStyle : undefined}
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${isDark ? 'bg-amber-300' : 'bg-yellow-500'}`}
+                            aria-hidden
+                          />
+                          <Pencil className={`h-4 w-4 shrink-0 ${isDark ? 'text-amber-100' : 'text-yellow-700'}`} />
+                          Editar información
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmEliminarSeguimiento(true)}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                            isDark
+                              ? 'shadow-md shadow-red-950/50 hover:brightness-110'
+                              : 'rounded-full border border-red-300 bg-red-50 text-red-800 hover:bg-red-100/90'
+                          }`}
+                          style={isDark ? chipDeleteDarkStyle : undefined}
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${isDark ? 'bg-red-300' : 'bg-red-600'}`}
+                            aria-hidden
+                          />
+                          <Trash2 className={`h-4 w-4 shrink-0 ${isDark ? 'text-red-100' : 'text-red-700'}`} />
+                          Eliminar seguimiento
+                        </button>
+                      </div>
                     )}
                   </div>
                   {editingInfo ? (
@@ -571,73 +719,151 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                       </div>
                     </form>
                   ) : (
-                  <div className={`grid gap-4 sm:grid-cols-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
-                    <div>
-                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Descripción</p>
-                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {seguimiento?.descripcion?.trim() || '—'}
-                      </p>
+                  <div className="space-y-5">
+                    <div
+                      className={`overflow-hidden rounded-2xl border shadow-sm ${
+                        isDark
+                          ? 'border-slate-600/90 bg-gradient-to-b from-slate-900/70 to-slate-800/50'
+                          : 'border-purple-100/90 bg-gradient-to-br from-white via-purple-50/25 to-slate-50/90'
+                      }`}
+                    >
+                      <div
+                        className={`border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                          isDark
+                            ? 'border-slate-600/80 bg-slate-900/60 text-purple-200/90'
+                            : 'border-purple-100/80 bg-purple-50/50 text-purple-800/90'
+                        }`}
+                      >
+                        Detalle del seguimiento
+                      </div>
+                      <div className="grid gap-4 p-4 sm:p-5 sm:grid-cols-2">
+                        <SeguimientoReadonlyField
+                          label="Descripción"
+                          isDark={isDark}
+                          className="sm:col-span-2"
+                          value={seguimiento?.descripcion?.trim() || '—'}
+                        />
+                        <SeguimientoReadonlyField
+                          label="Motivo"
+                          isDark={isDark}
+                          className="sm:col-span-2"
+                          value={seguimiento?.motivo?.trim() || '—'}
+                        />
+                        <SeguimientoReadonlyField
+                          label="Área remitido"
+                          isDark={isDark}
+                          value={seguimiento?.areaRemitido?.trim() || '—'}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Motivo</p>
-                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {seguimiento?.motivo?.trim() || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Área remitido</p>
-                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {seguimiento?.areaRemitido?.trim() || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha inicio</p>
-                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {seguimiento?.fechaInicioSeguimiento
-                          ? new Date(seguimiento.fechaInicioSeguimiento).toLocaleDateString('es-CO', { dateStyle: 'long' })
-                          : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fecha fin</p>
-                      <p className={`text-sm rounded-lg p-3 ${isDark ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
-                        {seguimiento?.fechaFinSeguimiento
-                          ? new Date(seguimiento.fechaFinSeguimiento).toLocaleDateString('es-CO', { dateStyle: 'long' })
-                          : 'Sin finalizar'}
-                      </p>
+
+                    <div
+                      className={`grid gap-4 rounded-2xl border p-4 sm:grid-cols-2 sm:p-5 ${
+                        isDark
+                          ? 'border-slate-600/80 bg-slate-900/35'
+                          : 'border-slate-200/90 bg-slate-50/70'
+                      }`}
+                    >
+                      <div className="flex gap-3">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                            isDark ? 'bg-purple-900/60 text-purple-200' : 'bg-purple-100 text-purple-600'
+                          }`}
+                        >
+                          <Calendar className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`mb-1 text-[11px] font-semibold uppercase tracking-wider ${
+                              isDark ? 'text-slate-400' : 'text-slate-500'
+                            }`}
+                          >
+                            Fecha inicio
+                          </p>
+                          <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            {seguimiento?.fechaInicioSeguimiento
+                              ? new Date(seguimiento.fechaInicioSeguimiento).toLocaleDateString('es-CO', {
+                                  dateStyle: 'long',
+                                })
+                              : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                            isDark ? 'bg-indigo-900/50 text-indigo-200' : 'bg-indigo-100 text-indigo-600'
+                          }`}
+                        >
+                          <Calendar className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`mb-1 text-[11px] font-semibold uppercase tracking-wider ${
+                              isDark ? 'text-slate-400' : 'text-slate-500'
+                            }`}
+                          >
+                            Fecha fin
+                          </p>
+                          <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            {seguimiento?.fechaFinSeguimiento
+                              ? new Date(seguimiento.fechaFinSeguimiento).toLocaleDateString('es-CO', {
+                                  dateStyle: 'long',
+                                })
+                              : 'Sin finalizar'}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   )}
-                  <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      {seguimiento?.firmaProfesional ? (
-                        <FirmaDisplay
-                          label="Firma del profesional"
-                          url={seguimiento.firmaProfesional}
-                          isDark={isDark}
-                          onEdit={() => setShowEditarFirmaModal(true)}
-                        />
-                      ) : (
-                        <FirmaDisplayPlaceholder
-                          label="Firma del profesional"
-                          isDark={isDark}
-                          onAdd={() => setShowEditarFirmaModal(true)}
-                        />
-                      )}
+                  <div
+                    className={`mt-6 grid grid-cols-1 gap-4 overflow-hidden rounded-2xl border sm:grid-cols-2 ${
+                      isDark
+                        ? 'border-slate-600/80 bg-slate-900/30'
+                        : 'border-slate-200/90 bg-slate-50/40'
+                    }`}
+                  >
+                    <div
+                      className={`col-span-full border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                        isDark
+                          ? 'border-slate-600/80 bg-slate-900/50 text-slate-300'
+                          : 'border-slate-200/90 bg-white/60 text-slate-600'
+                      }`}
+                    >
+                      Firmas del seguimiento
                     </div>
-                    <div>
-                      {seguimiento?.firmaAprendiz ? (
-                        <FirmaDisplay
-                          label="Firma del aprendiz"
-                          url={seguimiento.firmaAprendiz}
-                          isDark={isDark}
-                        />
-                      ) : (
-                        <FirmaDisplayPlaceholder
-                          label="Firma del aprendiz"
-                          isDark={isDark}
-                        />
-                      )}
+                    <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
+                      <div>
+                        {seguimiento?.firmaProfesional ? (
+                          <FirmaDisplay
+                            label="Firma del profesional"
+                            url={seguimiento.firmaProfesional}
+                            isDark={isDark}
+                            onEdit={() => setShowEditarFirmaModal(true)}
+                          />
+                        ) : (
+                          <FirmaDisplayPlaceholder
+                            label="Firma del profesional"
+                            isDark={isDark}
+                            onAdd={() => setShowEditarFirmaModal(true)}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        {seguimiento?.firmaAprendiz ? (
+                          <FirmaDisplay
+                            label="Firma del aprendiz"
+                            url={seguimiento.firmaAprendiz}
+                            isDark={isDark}
+                          />
+                        ) : (
+                          <FirmaDisplayPlaceholder
+                            label="Firma del aprendiz"
+                            isDark={isDark}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                   {!seguimiento?.fechaFinSeguimiento && (
@@ -661,57 +887,97 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
 
               {activeTab === 'calendar' && (
                 <div>
-                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Registro Emocional</h3>
-                  <div className="grid grid-cols-7 gap-3">
-                    {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => (
-                      <div key={i} className={`text-center text-sm py-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {day}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>Registro Emocional</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { const prev = emoMes === 1 ? 12 : emoMes - 1; setEmoMes(prev); if (prev === 12) setEmoAnio(a => a - 1); }}
+                        className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                      >←</button>
+                      <span className={`text-sm font-medium min-w-[120px] text-center ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                        {['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][emoMes]} {emoAnio}
+                      </span>
+                      <button
+                        onClick={() => { const next = emoMes === 12 ? 1 : emoMes + 1; setEmoMes(next); if (next === 1) setEmoAnio(a => a + 1); }}
+                        className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                      >→</button>
+                    </div>
+                  </div>
+
+                  {!student.aprendizId ? (
+                    <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No se pudo determinar el ID del aprendiz para consultar su diario.</p>
+                  ) : emoLoading ? (
+                    <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-purple-600" /></div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-7 gap-3">
+                        {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => (
+                          <div key={i} className={`text-center text-sm py-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{day}</div>
+                        ))}
+                        {(() => {
+                          const totalDays = new Date(emoAnio, emoMes, 0).getDate();
+                          const firstDow = new Date(emoAnio, emoMes - 1, 1).getDay();
+                          const blanks = Array.from({ length: firstDow }, (_, i) => (
+                            <div key={`b${i}`} className="aspect-square" />
+                          ));
+                          const days = Array.from({ length: totalDays }, (_, i) => {
+                            const dia = diasMap.get(i + 1);
+                            const cat = dia?.categoriaDia;
+                            const emoji = dia?.emocion?.emoEmoji;
+                            return (
+                              <div
+                                key={i}
+                                title={dia ? `${dia.emocion?.emoNombre ?? ''} (${dia.promedioEscala})` : ''}
+                                className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm relative ${
+                                  cat ? `${getEmotionBg(cat)} text-white` : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'
+                                }`}
+                              >
+                                {emoji && <span className="text-base leading-none">{emoji}</span>}
+                                <span className={emoji ? 'text-[10px]' : ''}>{i + 1}</span>
+                              </div>
+                            );
+                          });
+                          return [...blanks, ...days];
+                        })()}
                       </div>
-                    ))}
-                    {Array.from({ length: 30 }, (_, i) => {
-                      const emotion = emotionalData.find(e => new Date(e.date).getDate() === i + 1);
-                      return (
-                        <div
-                          key={i}
-                          className={`aspect-square rounded-lg flex items-center justify-center text-sm ${
-                            emotion
-                              ? `${getEmotionColor(emotion.emotion)} text-white`
-                              : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {i + 1}
+                      <div className="mt-6 flex flex-wrap gap-4">
+                        {[
+                          { label: 'Positiva', cls: 'bg-green-500' },
+                          { label: 'Neutral', cls: 'bg-yellow-500' },
+                          { label: 'Negativa', cls: 'bg-orange-500' },
+                          { label: 'Crítica', cls: 'bg-red-500' },
+                        ].map(l => (
+                          <div key={l.label} className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded ${l.cls}`} />
+                            <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>{l.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {resumen.totalDias > 0 && (
+                        <div className={`mt-4 p-4 rounded-xl ${isDark ? 'bg-slate-700/50' : 'bg-purple-50/50'}`}>
+                          <p className={`text-sm font-medium mb-1 ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                            Promedio del mes: <span className="text-purple-600 dark:text-purple-400">{resumen.promedioEscala}/10</span>
+                          </p>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {resumen.totalDias} días con registro emocional
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-6 flex gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-green-500"></div>
-                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Positiva</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-yellow-500"></div>
-                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Neutral</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-orange-500"></div>
-                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Negativa</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-red-500"></div>
-                      <span className={`text-sm ${isDark ? 'text-white' : 'text-slate-600'}`}>Crítica</span>
-                    </div>
-                  </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
               {activeTab === 'charts' && (
                 <div>
                   <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Estadísticas de Evolución</h3>
+                  {emoLoading ? (
+                    <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-purple-600" /></div>
+                  ) : (
                   <div className="space-y-6">
                     {/* Emotional Evolution Chart */}
                     <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-purple-50/30'}`}>
-                      <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Evolución Emocional (últimos 7 días)</p>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Evolución Emocional (últimos 6 meses)</p>
                       <ResponsiveContainer width="100%" height={250}>
                         <LineChart data={emotionalEvolutionData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -767,47 +1033,87 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                     {/* Emotional Distribution */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className={`rounded-xl p-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-green-50/30'}`}>
-                        <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Distribución Emocional (30 días)</p>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <PieChart>
-                            <Pie
-                              data={emotionalDistributionData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {emotionalDistributionData.map((_, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Distribución emocional (mes seleccionado)</p>
+                        {pieDistributionData.length === 0 ? (
+                          <div className={`flex h-[200px] items-center justify-center rounded-lg text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Sin registros emocionales en este mes
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={200}>
+                            <PieChart>
+                              <Pie
+                                data={pieDistributionData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={false}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                dataKey="value"
+                                nameKey="name"
+                              >
+                                {pieDistributionData.map((entry) => (
+                                  <Cell key={entry.name} fill={entry.color} stroke={isDark ? '#1e293b' : '#fff'} strokeWidth={1} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: number) => [`${value} día${value === 1 ? '' : 's'}`, '']}
+                                contentStyle={{
+                                  backgroundColor: isDark ? '#fff' : '#fff',
+                                  border: `1px solid ${isDark ? '#475569' : '#e5e7eb'}`,
+                                  borderRadius: 8,
+                                  color: isDark ? '#f1f5f9' : '#0f172a',
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
+                        <ul className={`mt-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 ${isDark ? 'text-slate-200' : 'text-slate-700'}`} aria-label="Leyenda distribución emocional">
+                          {emotionalDistributionData.map((d) => {
+                            const pctVal = totalCat > 0 ? Math.round((d.value / totalCat) * 100) : 0;
+                            return (
+                              <li
+                                key={d.name}
+                                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${isDark ? 'border-slate-600/80 bg-slate-800/60' : 'border-slate-200/80 bg-white/60'}`}
+                              >
+                                <span className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/20" style={{ backgroundColor: d.color }} />
+                                <span className="min-w-0 flex-1 font-medium" style={{ color: d.color }}>
+                                  {d.name}
+                                </span>
+                                <span className={`shrink-0 tabular-nums ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  {d.value} ({pctVal}%)
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </div>
 
                       <div className="space-y-3">
                         <div className={`rounded-xl p-4 border ${isDark ? 'bg-green-900/30 border-green-700/50' : 'bg-green-50 border-green-200'}`}>
                           <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Positivos</p>
-                          <p className={`text-2xl ${isDark ? 'text-green-300' : 'text-green-700'}`}>18</p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>60% del mes</p>
+                          <p className={`text-2xl ${isDark ? 'text-green-300' : 'text-green-700'}`}>{resumen.positivas}</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{pct(resumen.positivas)} del mes</p>
                         </div>
                         <div className={`rounded-xl p-4 border ${isDark ? 'bg-yellow-900/30 border-yellow-700/50' : 'bg-yellow-50 border-yellow-200'}`}>
                           <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Neutrales</p>
-                          <p className={`text-2xl ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>9</p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>30% del mes</p>
+                          <p className={`text-2xl ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>{resumen.neutrales}</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{pct(resumen.neutrales)} del mes</p>
+                        </div>
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-orange-900/30 border-orange-700/50' : 'bg-orange-50 border-orange-200'}`}>
+                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Negativos</p>
+                          <p className={`text-2xl ${isDark ? 'text-orange-300' : 'text-orange-700'}`}>{resumen.negativas}</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{pct(resumen.negativas)} del mes</p>
                         </div>
                         <div className={`rounded-xl p-4 border ${isDark ? 'bg-red-900/30 border-red-700/50' : 'bg-red-50 border-red-200'}`}>
-                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Negativos</p>
-                          <p className={`text-2xl ${isDark ? 'text-red-300' : 'text-red-700'}`}>3</p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>10% del mes</p>
+                          <p className={`text-sm mb-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Días Críticos</p>
+                          <p className={`text-2xl ${isDark ? 'text-red-300' : 'text-red-700'}`}>{resumen.criticas}</p>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{pct(resumen.criticas)} del mes</p>
                         </div>
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -832,7 +1138,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                     <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
                       <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Estado Emocional</p>
                       <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full" style={{ width: '80%' }}></div>
+                        <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full" style={{ width: `${resumen.promedioEscala * 10}%` }}></div>
                       </div>
                     </div>
                     <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
@@ -972,6 +1278,111 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
           isDark={isDark}
         />
       )}
+
+      {/* Modal Confirmar Eliminar Seguimiento */}
+      {showConfirmEliminarSeguimiento &&
+        createPortal(
+          <div
+            className="fixed inset-0 flex items-center justify-center p-4"
+            style={{
+              zIndex: 2147483648,
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.88)' : 'rgba(15, 23, 42, 0.45)',
+              backdropFilter: 'blur(8px)',
+            }}
+            onClick={() => !eliminandoSeguimiento && setShowConfirmEliminarSeguimiento(false)}
+            role="presentation"
+          >
+            <div
+              className="relative max-w-[23rem] overflow-hidden rounded-2xl shadow-2xl"
+              style={{
+                backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                border: isDark ? '1px solid rgba(248, 113, 113, 0.25)' : '1px solid rgba(252, 165, 165, 0.45)',
+                boxShadow: isDark
+                  ? '0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)'
+                  : '0 25px 50px -12px rgba(0,0,0,0.18)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="eliminar-seguimiento-titulo"
+              aria-describedby="eliminar-seguimiento-desc"
+            >
+              <div className="flex items-start justify-items-center gap-3 border-b px-4 py-3 sm:items-center " style={{ borderColor: isDark ? 'rgba(51,65,85,0.9)' : '#f1f5f9' }}>
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: isDark ? 'rgba(127, 29, 29, 0.45)' : '#fee2e2',
+                  }}
+                  aria-hidden
+                >
+                  <AlertTriangle className="h-5 w-5 shrink-0" style={{ color: isDark ? '#f87171' : '#dc2626' }} strokeWidth={2.25} />
+                </div>
+                <div className="min-w-0 h-full flex-1 pt-0.5">
+                  <h2 id="eliminar-seguimiento-titulo" className={`text-[15px] font-semibold leading-tight h-full flex-1 pt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    Eliminar seguimiento
+                  </h2>
+                </div>
+              </div>
+
+              <div id="eliminar-seguimiento-desc" className="space-y-1 px-4 py-3">
+                <p className={`text-[13px] leading-relaxed ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
+                  ¿Confirmas que deseas eliminar el seguimiento de{' '}
+                  <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{nombreSeguimientoModal}</span>?
+                </p>
+              </div>
+              <div
+                className="flex flex-col gap-3 px-4 py-4 pt-3 pb-8 sm:flex-row sm:items-center sm:justify-end"
+                style={{
+                  borderColor: isDark ? 'rgba(51,65,85,0.9)' : '#f1f5f9',
+                  backgroundColor: isDark ? 'rgba(15, 23, 42, 0.6)' : '#f8fafc',
+                }}
+              >
+                
+                <button
+                  type="button"
+                  disabled={eliminandoSeguimiento}
+                  onClick={() => setShowConfirmEliminarSeguimiento(false)}
+                  style={isDark ? modalCancelBtnDark : modalCancelBtnLight}
+                  className="min-h-[40px] w-full px-2 py-2 text-sm font-medium transition-[opacity,transform] hover:opacity-95 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-45 sm:w-auto sm:min-w-[7.5rem]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={eliminandoSeguimiento || !student.id}
+                  onClick={async () => {
+                    if (!student.id) return;
+                    setEliminandoSeguimiento(true);
+                    try {
+                      await eliminarSeguimiento(student.id);
+                      setShowConfirmEliminarSeguimiento(false);
+                      onSeguimientoDeleted?.();
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Error al eliminar el seguimiento');
+                    } finally {
+                      setEliminandoSeguimiento(false);
+                    }
+                  }}
+                  style={modalDangerConfirmBtnStyle}
+                  className="inline-flex min-h-[40px] w-full shrink-0 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45 sm:w-auto sm:min-w-[10rem]"
+                >
+                  {eliminandoSeguimiento ? (
+                    <>
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white" aria-hidden />
+                      Eliminando…
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 shrink-0 text-white opacity-95" aria-hidden />
+                      Sí, eliminar
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Modal Confirmar Finalizar Seguimiento */}
       {showConfirmFinalizar &&

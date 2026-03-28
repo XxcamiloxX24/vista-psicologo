@@ -12,6 +12,7 @@ import { CardsInfoManager } from "./components/CardsInfoManager";
 import { CardInfoDetailPage } from "./components/CardInfoDetailPage";
 import { CardInfoCreatePage } from "./components/CardInfoCreatePage";
 import type { CardInfo } from "./lib/cardsInfo";
+import { EmotionsManager } from "./components/EmotionsManager";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
 import { ProfileEditPage } from "./components/ProfileEditPage";
@@ -42,6 +43,7 @@ type Section =
   | "cards-info"
   | "cards-info-detail"
   | "cards-info-create"
+  | "emotions-manager"
   | "about"
   | "settings"
   | "profile-edit";
@@ -320,6 +322,8 @@ export default function App() {
             onSuccess={handleCardsInfoCreateSuccess}
           />
         );
+      case "emotions-manager":
+        return <EmotionsManager />;
       case "about":
         return <About />;
       case "settings":
