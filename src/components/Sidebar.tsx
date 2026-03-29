@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell, LayoutGrid, SmilePlus } from 'lucide-react';
+import { Home, Calendar, MessageSquare, Activity, Info, Settings, Brain, Users, LogOut, Bell, LayoutGrid, SmilePlus, ClipboardList } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
@@ -16,6 +16,7 @@ type Section =
   | 'cards-info-detail'
   | 'cards-info-create'
   | 'emotions-manager'
+  | 'test-templates'
   | 'about'
   | 'settings'
   | 'profile-edit';
@@ -45,6 +46,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
     { id: 'students' as Section, label: 'Fichas', icon: Users },
     { id: 'cards-info' as Section, label: 'Tarjetas informativas', icon: LayoutGrid },
     { id: 'emotions-manager' as Section, label: 'Emociones', icon: SmilePlus },
+    { id: 'test-templates' as Section, label: 'Plantillas de Test', icon: ClipboardList },
     { id: 'about' as Section, label: 'Sobre Nosotros', icon: Info },
   ];
 
@@ -81,12 +83,12 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
                 onClick={() => onSectionChange(item.id)}
                 onMouseEnter={() => setHoveredNav(item.id)}
                 onMouseLeave={() => setHoveredNav(null)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 border ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
+                    ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border-purple-200/50 dark:border-purple-500/30'
                     : hoveredNav === item.id
-                    ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
-                    : 'text-slate-600'
+                    ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border-purple-200/50 dark:border-purple-500/30'
+                    : 'text-slate-600 border-transparent'
                 }`}
                 style={!isActive && !(hoveredNav === item.id) && isDark ? { color: 'white' } : undefined}
               >
@@ -94,7 +96,7 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
                   className={`w-5 h-5 shrink-0 ${isActive ? 'text-purple-600 dark:text-purple-400' : hoveredNav === item.id ? 'text-purple-600 dark:text-purple-400' : ''}`}
                   style={!isActive && !(hoveredNav === item.id) && isDark ? { color: 'white' } : undefined}
                 />
-                <span>{item.label}</span>
+                <span className="min-w-0 flex-1 text-left whitespace-nowrap">{item.label}</span>
               </button>
             );
           })}
@@ -107,12 +109,12 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
               onClick={() => onSectionChange('settings')}
               onMouseEnter={() => setHoveredSettings(true)}
               onMouseLeave={() => setHoveredSettings(false)}
-              className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+              className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 border ${
                 activeSection === 'settings' || activeSection === 'profile-edit'
-                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
+                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-700 dark:text-purple-300 shadow-sm border-purple-200/50 dark:border-purple-500/30'
                   : hoveredSettings
-                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border border-purple-200/50 dark:border-purple-500/30'
-                  : 'text-slate-600'
+                  ? 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-purple-600/10 text-purple-600 dark:text-purple-300 shadow-sm border-purple-200/50 dark:border-purple-500/30'
+                  : 'text-slate-600 border-transparent'
               }`}
               style={activeSection !== 'settings' && activeSection !== 'profile-edit' && !hoveredSettings && isDark ? { color: 'white' } : undefined}
             >

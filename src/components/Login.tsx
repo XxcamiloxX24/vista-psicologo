@@ -87,44 +87,44 @@ export function Login({ onLogin, onViewTerms }: LoginProps) {
           {/* Formulario */}
           <form onSubmit={handleSubmit} className="login-form p-8 space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">
+              <Label htmlFor="email" className="text-slate-700 dark:text-slate-200">
                 Correo electrónico
               </Label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none z-10" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="ejemplo@correo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-12 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-200/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-800"
-                  style={{ color: 'black' }}
+                  autoComplete="email"
+                  className="pl-12 h-12 rounded-xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-500 focus-visible:ring-purple-500/50 focus-visible:border-purple-400 dark:border-slate-200 dark:bg-white dark:text-slate-900"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
+              <Label htmlFor="password" className="text-slate-700 dark:text-slate-200">
                 Contraseña
               </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none z-10" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-12 pr-4 h-12 rounded-xl border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 focus-visible:ring-purple-500/50 focus-visible:border-purple-300 placeholder:text-slate-500"
-                    style={{ color: '#000000' }}
+                    autoComplete="current-password"
+                    className="pl-12 pr-4 h-12 rounded-xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-500 focus-visible:ring-purple-500/50 focus-visible:border-purple-400 dark:border-slate-200 dark:bg-white dark:text-slate-900"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="shrink-0 w-12 h-12 rounded-xl border border-purple-200/50 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/50 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-600/50 transition-colors"
+                  className="shrink-0 w-12 h-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors dark:border-slate-200 dark:bg-white dark:hover:bg-slate-50"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

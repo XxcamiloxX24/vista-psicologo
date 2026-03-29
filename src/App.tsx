@@ -13,6 +13,7 @@ import { CardInfoDetailPage } from "./components/CardInfoDetailPage";
 import { CardInfoCreatePage } from "./components/CardInfoCreatePage";
 import type { CardInfo } from "./lib/cardsInfo";
 import { EmotionsManager } from "./components/EmotionsManager";
+import { TestTemplateManager } from "./components/TestTemplateManager";
 import { About } from "./components/About";
 import { Settings } from "./components/Settings";
 import { ProfileEditPage } from "./components/ProfileEditPage";
@@ -44,6 +45,7 @@ type Section =
   | "cards-info-detail"
   | "cards-info-create"
   | "emotions-manager"
+  | "test-templates"
   | "about"
   | "settings"
   | "profile-edit";
@@ -324,6 +326,8 @@ export default function App() {
         );
       case "emotions-manager":
         return <EmotionsManager />;
+      case "test-templates":
+        return <TestTemplateManager />;
       case "about":
         return <About />;
       case "settings":

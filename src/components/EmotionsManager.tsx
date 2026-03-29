@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Pencil, Trash2, Loader2, SmilePlus, X } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
@@ -23,8 +23,23 @@ const CATEGORY_BADGE: Record<string, string> = {
 const COMMON_EMOJIS = [
   '😊', '😌', '🙏', '💪', '😢', '😰', '😡', '😣',
   '😴', '🤔', '😐', '🕰', '🤩', '😇', '🥺', '😤',
-  '😱', '🤗', '😎', '🥳', '😔', '😭', '🫠', '😶',
+  '😱', '🤗', '😎', '🥳', '😔', '😭', '😶', '🤓', '🤯', '🤮', '🤢', '🤡', '🤠',
 ];
+
+/** Primer emoji / grapheme (incluye secuencias ZWJ, piel, etc.). */
+function primerEmojiOTexto(s: string): string {
+  const t = s.trim();
+  if (!t) return '';
+  try {
+    const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    for (const { segment } of seg.segment(t)) {
+      return segment;
+    }
+    return '';
+  } catch {
+    return Array.from(t)[0] ?? '';
+  }
+}
 
 interface EmotionFormData {
   emoNombre: string;
@@ -55,6 +70,7 @@ export function EmotionsManager() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const emojiManualInputRef = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -198,7 +214,15 @@ export function EmotionsManager() {
               <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 Emoji
               </label>
-              <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+              <Popover
+                open={emojiPickerOpen}
+                onOpenChange={(open) => {
+                  setEmojiPickerOpen(open);
+                  if (open) {
+                    requestAnimationFrame(() => emojiManualInputRef.current?.focus());
+                  }
+                }}
+              >
                 <PopoverTrigger asChild>
                   <button
                     type="button"
@@ -215,8 +239,33 @@ export function EmotionsManager() {
                   className={`w-72 p-4 z-[200] ${isDark ? 'bg-black backdrop-blur-sm border border-slate-700' : 'bg-white border-slate-200'}`}
                   onOpenAutoFocus={(e) => e.preventDefault()}
                 >
-                  <p className={`text-sll font-medium mb-2 px-1 ${isDark ? 'text-slate-200' : 'text-slate-500'}`}>
+                  <p className={`text-sm font-medium mb-2 px-1 ${isDark ? 'text-slate-200' : 'text-slate-500'}`}>
                     Elige un emoji
+                  </p>
+                  <label className={`block text-xs font-medium mb-1 px-1 ${isDark ? 'text-slate-900' : 'text-slate-600'}`}>
+                    O escribe, pega o usa el teclado emoji del sistema
+                  </label>
+                  <input
+                    ref={emojiManualInputRef}
+                    type="text"
+                    inputMode="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="Ej: pega 😮 o abre Win + ."
+                    value={form.emoEmoji}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '') {
+                        setForm((prev) => ({ ...prev, emoEmoji: '' }));
+                        return;
+                      }
+                      const uno = primerEmojiOTexto(v);
+                      setForm((prev) => ({ ...prev, emoEmoji: uno }));
+                    }}
+                    className={`w-full mb-3 px-2 py-2 rounded-lg border text-lg leading-none ${isDark ? 'bg-slate-900 border-slate-600 text-white placeholder:text-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                  />
+                  <p className={`text-[11px] mb-2 px-1 ${isDark ? 'text-slate-900' : 'text-slate-500'}`}>
+                    Se guarda el primer emoji del texto. La cuadrícula de abajo son accesos rápidos.
                   </p>
                   <div
                     className="max-h-52 overflow-y-auto overscroll-contain"

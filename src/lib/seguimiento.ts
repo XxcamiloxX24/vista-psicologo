@@ -47,6 +47,9 @@ export interface SeguimientoListarResult {
   };
   estadoSeguimiento?: string;
   EstadoSeguimiento?: string;
+  /** Inicio del seguimiento (mis-seguimientos / listar) */
+  fechaInicioSeguimiento?: string | null;
+  FechaInicioSeguimiento?: string | null;
 }
 
 export interface SeguimientoListarResponse {
@@ -114,7 +117,7 @@ export async function getSeguimientoPorId(id: number): Promise<SeguimientoDetall
     segCodigo: Number(segCodigo ?? 0),
     aprendiz: aprendiz as SeguimientoListarResult['aprendiz'],
     estadoSeguimiento: String(estado ?? ''),
-    segAprendizFk: (apr?.AprFicCodigo ?? apr?.aprFicCodigo) as number | undefined,
+    segAprendizFk: getField<number>(apr, 'aprFicCodigo', 'AprFicCodigo'),
     segPsicologoFk: psi ? (psi.PsiCodigo ?? psi.psiCodigo) as number | undefined : undefined,
     fechaInicioSeguimiento: getField<string>(data, 'fechaInicioSeguimiento', 'FechaInicioSeguimiento'),
     fechaFinSeguimiento: getField<string>(data, 'fechaFinSeguimiento', 'FechaFinSeguimiento'),
@@ -184,9 +187,149 @@ export const ESTADOS_SEGUIMIENTO_API = {
   estable: 'Estables',
   observacion: 'En Observacion',
   critico: 'Criticos',
+  /** Psicólogo cerró el caso (firma profesional + fecha fin); el aprendiz firma en móvil. */
+  completada: 'Completada',
 } as const;
 
 export type EstadoSeguimientoApi = (typeof ESTADOS_SEGUIMIENTO_API)[keyof typeof ESTADOS_SEGUIMIENTO_API];
+
+/** Opciones para selectores en la UI (valor = string exacto de la API / BD). */
+export const OPCIONES_ESTADO_SEGUIMIENTO_UI: { value: EstadoSeguimientoApi; label: string }[] = [
+  { value: ESTADOS_SEGUIMIENTO_API.estable, label: 'Estable' },
+  { value: ESTADOS_SEGUIMIENTO_API.observacion, label: 'En observación' },
+  { value: ESTADOS_SEGUIMIENTO_API.critico, label: 'Crítico' },
+  { value: ESTADOS_SEGUIMIENTO_API.completada, label: 'Completada (cerrado)' },
+];
+
+/** Etiqueta amigable para mostrar el estado del seguimiento. */
+export function etiquetaEstadoSeguimiento(raw: string | null | undefined): string {
+  const n = normalizarEstadoSeguimientoApi(raw);
+  if (!n) return '—';
+  const found = OPCIONES_ESTADO_SEGUIMIENTO_UI.find((o) => o.value === n);
+  return found?.label ?? raw?.trim() ?? '—';
+}
+
+/** Normaliza texto de estado al valor canónico de API o null. */
+export function normalizarEstadoSeguimientoApi(raw: string | null | undefined): EstadoSeguimientoApi | null {
+  if (!raw?.trim()) return null;
+  const t = raw.trim();
+  for (const v of Object.values(ESTADOS_SEGUIMIENTO_API)) {
+    if (v.toLowerCase() === t.toLowerCase()) return v;
+  }
+  const compact = t.toLowerCase().replace(/\s+/g, '');
+  if (compact === 'enobservacion') return ESTADOS_SEGUIMIENTO_API.observacion;
+  if (compact === 'criticos') return ESTADOS_SEGUIMIENTO_API.critico;
+  if (compact === 'estables') return ESTADOS_SEGUIMIENTO_API.estable;
+  if (compact === 'completada') return ESTADOS_SEGUIMIENTO_API.completada;
+  return null;
+}
+
+function segToRecord(v: unknown): Record<string, unknown> | undefined {
+  if (v && typeof v === 'object') return v as Record<string, unknown>;
+  return undefined;
+}
+
+function segGetVal<T>(o: Record<string, unknown> | undefined, camel: string, pascal: string): T | undefined {
+  if (!o) return undefined;
+  return (o[camel] ?? o[pascal]) as T | undefined;
+}
+
+/** Nombre completo del aprendiz desde un ítem de mis-seguimientos. */
+export function nombreCompletoDesdeSeguimientoListar(r: SeguimientoListarResult): string {
+  const root = segToRecord(r.aprendiz);
+  const apr = segToRecord(root?.aprendiz) ?? segToRecord(root?.Aprendiz);
+  const n = segToRecord(apr?.nombres) ?? segToRecord(apr?.Nombres);
+  const a = segToRecord(apr?.apellidos) ?? segToRecord(apr?.Apellidos);
+  const parts: string[] = [];
+  const p1 = segGetVal<string>(n, 'primerNombre', 'PrimerNombre');
+  const p2 = segGetVal<string>(n, 'segundoNombre', 'SegundoNombre');
+  const p3 = segGetVal<string>(a, 'primerApellido', 'PrimerApellido');
+  const p4 = segGetVal<string>(a, 'segundoApellido', 'SegundoApellido');
+  if (p1) parts.push(p1);
+  if (p2) parts.push(p2);
+  if (p3) parts.push(p3);
+  if (p4) parts.push(p4);
+  return parts.join(' ') || '—';
+}
+
+export function fichaCodigoDesdeSeguimientoListar(r: SeguimientoListarResult): string {
+  const root = segToRecord(r.aprendiz);
+  const ficha = segToRecord(root?.ficha) ?? segToRecord(root?.Ficha);
+  const code = segGetVal<number>(ficha, 'ficCodigo', 'FicCodigo');
+  return code != null ? String(code) : '—';
+}
+
+function getFechaInicioSeguimientoListar(r: SeguimientoListarResult): string | undefined {
+  const raw = r as unknown as Record<string, unknown>;
+  const iso =
+    r.fechaInicioSeguimiento ??
+    r.FechaInicioSeguimiento ??
+    raw.fechaInicioSeguimiento ??
+    raw.FechaInicioSeguimiento;
+  return typeof iso === 'string' && iso.trim() ? iso.trim() : undefined;
+}
+
+/** Texto tipo "Hace 2 días" a partir de una fecha ISO de la API. */
+export function tiempoRelativoDesdeIso(iso: string | null | undefined): string {
+  if (!iso?.trim()) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const diffMs = Date.now() - d.getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days <= 0) return 'Hoy';
+  if (days === 1) return 'Hace 1 día';
+  return `Hace ${days} días`;
+}
+
+export interface SeguimientoPrioritarioDashboard {
+  segCodigo: number;
+  nombre: string;
+  ficha: string;
+  /** Para estilos: crítico vs observación */
+  nivel: 'critico' | 'observacion';
+  nivelLabel: string;
+  tiempoTexto: string;
+}
+
+/**
+ * Seguimientos en estado Críticos o En Observacion del psicólogo actual.
+ * Prioriza críticos y luego fecha de inicio más reciente.
+ */
+export async function getSeguimientosPrioritariosDashboard(limite = 5): Promise<SeguimientoPrioritarioDashboard[]> {
+  const { resultados } = await listarSeguimientos(1, 100);
+  const filtrados = resultados
+    .map((r) => {
+      const raw = r.estadoSeguimiento ?? r.EstadoSeguimiento ?? '';
+      const estado = normalizarEstadoSeguimientoApi(raw);
+      return { r, estado };
+    })
+    .filter(
+      ({ estado }) =>
+        estado === ESTADOS_SEGUIMIENTO_API.critico || estado === ESTADOS_SEGUIMIENTO_API.observacion
+    );
+
+  filtrados.sort((a, b) => {
+    const ac = a.estado === ESTADOS_SEGUIMIENTO_API.critico ? 0 : 1;
+    const bc = b.estado === ESTADOS_SEGUIMIENTO_API.critico ? 0 : 1;
+    if (ac !== bc) return ac - bc;
+    const ta = +new Date(getFechaInicioSeguimientoListar(a.r) ?? 0) || 0;
+    const tb = +new Date(getFechaInicioSeguimientoListar(b.r) ?? 0) || 0;
+    return tb - ta;
+  });
+
+  return filtrados.slice(0, limite).map(({ r, estado }) => {
+    const crit = estado === ESTADOS_SEGUIMIENTO_API.critico;
+    const fecha = getFechaInicioSeguimientoListar(r);
+    return {
+      segCodigo: r.segCodigo,
+      nombre: nombreCompletoDesdeSeguimientoListar(r),
+      ficha: fichaCodigoDesdeSeguimientoListar(r),
+      nivel: crit ? 'critico' : 'observacion',
+      nivelLabel: crit ? 'Crítico' : 'En Observación',
+      tiempoTexto: tiempoRelativoDesdeIso(fecha),
+    };
+  });
+}
 
 export interface CrearSeguimientoPayload {
   /** FK a tabla aprendiz_ficha (AprFicCodigo), no al código del aprendiz solo */

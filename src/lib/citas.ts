@@ -108,6 +108,38 @@ export function getFichaFromCita(c: CitaApi): string {
   return code != null ? String(code) : '';
 }
 
+/** Formatea hora de cita ("09:00:00" o ISO) a "HH:mm" para la UI. */
+export function formatHoraCita(hora: string | null | undefined): string {
+  if (!hora?.trim()) return '—';
+  const t = hora.trim();
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (m) {
+    const h = m[1].padStart(2, '0');
+    return `${h}:${m[2]}`;
+  }
+  const d = new Date(t);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+  return '—';
+}
+
+const ETIQUETA_ESTADO_CITA: Record<string, string> = {
+  programada: 'Programada',
+  reprogramada: 'Reprogramada',
+  realizada: 'Realizada',
+  cancelada: 'Cancelada',
+  pendiente: 'Pendiente',
+  completada: 'Completada',
+};
+
+/** Etiqueta legible para el badge según citEstadoCita de la API. */
+export function etiquetaEstadoCita(raw: string | null | undefined): string {
+  if (!raw?.trim()) return '—';
+  const k = raw.trim().toLowerCase();
+  return ETIQUETA_ESTADO_CITA[k] ?? raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1).toLowerCase();
+}
+
 export function getPsychologistNameFromCita(c: CitaApi): string {
   const p = c.psicologo ?? (c as unknown as Record<string, unknown>).Psicologo;
   if (!p || typeof p !== 'object') return '';

@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Users, MessageSquare, Activity, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Calendar, Users, MessageSquare, Activity, AlertCircle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getTotalAprendices } from '../lib/aprendiz';
-import { getCitasHoy, getComparacionSemanal } from '../lib/citas';
+import {
+  getCitasHoy,
+  getComparacionSemanal,
+  getCitasAgenda,
+  getCitaFieldFromApi,
+  getStudentNameFromCita,
+  getFichaFromCita,
+  formatHoraCita,
+  etiquetaEstadoCita,
+} from '../lib/citas';
 import { getPsychologistId } from '../lib/auth';
 import { getPsychologistIdFromToken } from '../lib/psychologist';
-import { getTendenciaEstado } from '../lib/seguimiento';
-import type { TendenciaEstadoItem } from '../lib/seguimiento';
+import { getTendenciaEstado, getSeguimientosPrioritariosDashboard } from '../lib/seguimiento';
+import type { TendenciaEstadoItem, SeguimientoPrioritarioDashboard } from '../lib/seguimiento';
+import { getActividadMensual } from '../lib/dashboard';
+import { getMensajesPorMes } from '../lib/chat';
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -20,6 +31,37 @@ const EMPTY_WEEKLY_DATA = [
   { day: 'Sáb', semanaActual: 0, semanaAnterior: 0 },
   { day: 'Dom', semanaActual: 0, semanaAnterior: 0 },
 ];
+
+interface CitaHoyDashboardRow {
+  citCodigo: number;
+  time: string;
+  name: string;
+  ficha: string;
+  statusLabel: string;
+  estadoRaw: string;
+}
+
+function claseBadgeEstadoCita(estadoRaw: string, isDark: boolean): string {
+  const k = estadoRaw.trim().toLowerCase();
+  if (k === 'realizada' || k === 'completada') {
+    return isDark ? 'bg-emerald-900/35 text-emerald-300' : 'bg-emerald-100 text-emerald-800';
+  }
+  if (k === 'cancelada') {
+    return isDark ? 'bg-red-900/35 text-red-300' : 'bg-red-100 text-red-800';
+  }
+  return isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-800';
+}
+
+/** Fecha de hoy en español (ej. "Viernes, 27 de marzo de 2026"). */
+function formatearFechaHoyLarga(): string {
+  const s = new Date().toLocaleDateString('es-CO', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export function Dashboard() {
   const { displayName } = usePsychologist();
@@ -37,6 +79,14 @@ export function Dashboard() {
   const [rangoError, setRangoError] = useState<string>('');
   const [followupTrendsData, setFollowupTrendsData] = useState<TendenciaEstadoItem[]>([]);
   const [appointmentsData, setAppointmentsData] = useState<{ day: string; semanaActual: number; semanaAnterior: number }[]>([]);
+  const [monthlyActivityData, setMonthlyActivityData] = useState<
+    { mes: string; citas: number; seguimientos: number; mensajes: number }[]
+  >([]);
+  const [monthlyActivityLoading, setMonthlyActivityLoading] = useState(true);
+  const [citasHoyList, setCitasHoyList] = useState<CitaHoyDashboardRow[]>([]);
+  const [citasHoyListLoading, setCitasHoyListLoading] = useState(true);
+  const [casosPrioritarios, setCasosPrioritarios] = useState<SeguimientoPrioritarioDashboard[]>([]);
+  const [casosPrioritariosLoading, setCasosPrioritariosLoading] = useState(true);
 
   useEffect(() => {
     getTotalAprendices()
@@ -51,11 +101,111 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const pid = getPsychologistIdFromToken() ?? getPsychologistId();
+    if (!pid) {
+      setCitasHoyList([]);
+      setCitasHoyListLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCitasHoyListLoading(true);
+      try {
+        const today = toDateInputValue(new Date());
+        const citas = await getCitasAgenda(today, today);
+        if (cancelled) return;
+        setCitasHoyList(
+          citas.map((c) => {
+            const raw = String(getCitaFieldFromApi<string>(c, 'citEstadoCita', 'CitEstadoCita') ?? '').trim();
+            return {
+              citCodigo: c.citCodigo,
+              time: formatHoraCita(getCitaFieldFromApi<string>(c, 'citHoraInicio', 'CitHoraInicio')),
+              name: getStudentNameFromCita(c),
+              ficha: getFichaFromCita(c) || '—',
+              statusLabel: etiquetaEstadoCita(raw || null),
+              estadoRaw: raw,
+            };
+          })
+        );
+      } catch {
+        if (!cancelled) setCitasHoyList([]);
+      } finally {
+        if (!cancelled) setCitasHoyListLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const pid = getPsychologistIdFromToken() ?? getPsychologistId();
+    if (!pid) {
+      setCasosPrioritarios([]);
+      setCasosPrioritariosLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCasosPrioritariosLoading(true);
+      try {
+        const rows = await getSeguimientosPrioritariosDashboard(5);
+        if (!cancelled) setCasosPrioritarios(rows);
+      } catch {
+        if (!cancelled) setCasosPrioritarios([]);
+      } finally {
+        if (!cancelled) setCasosPrioritariosLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const psicologoId = getPsychologistIdFromToken() ?? getPsychologistId();
     if (!psicologoId) return;
     getComparacionSemanal(psicologoId)
       .then(setAppointmentsData)
       .catch(() => setAppointmentsData([]));
+  }, []);
+
+  useEffect(() => {
+    const pid = getPsychologistIdFromToken() ?? getPsychologistId();
+    if (pid == null) {
+      setMonthlyActivityData([]);
+      setMonthlyActivityLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMonthlyActivityLoading(true);
+      try {
+        const [act, msgs] = await Promise.all([
+          getActividadMensual(pid, 6),
+          getMensajesPorMes(6).catch(() => [] as { año: number; mes: number; total: number }[]),
+        ]);
+        if (cancelled) return;
+        const msgMap = new Map<string, number>();
+        for (const row of msgs) {
+          msgMap.set(`${row.año}-${row.mes}`, row.total);
+        }
+        const merged = act.map((row) => ({
+          mes: row.mes,
+          citas: row.citas,
+          seguimientos: row.seguimientos,
+          mensajes: msgMap.get(`${row.anio}-${row.mesNumero}`) ?? row.mensajes ?? 0,
+        }));
+        setMonthlyActivityData(merged);
+      } catch {
+        if (!cancelled) setMonthlyActivityData([]);
+      } finally {
+        if (!cancelled) setMonthlyActivityLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const toDateInputValue = (date: Date) => {
@@ -167,26 +317,7 @@ export function Dashboard() {
     }
   ];
 
-  // Data for monthly comparison
-  const monthlyData = [
-    { mes: 'Ago', citas: 145, seguimientos: 18, mensajes: 320 },
-    { mes: 'Sep', citas: 162, seguimientos: 21, mensajes: 380 },
-    { mes: 'Oct', citas: 178, seguimientos: 22, mensajes: 420 },
-    { mes: 'Nov', citas: 195, seguimientos: 24, mensajes: 456 },
-    { mes: 'Dic', citas: 52, seguimientos: 24, mensajes: 124 }
-  ];
-
-  const recentAppointments = [
-    { time: '09:00', name: 'Ana García Pérez', status: 'pending', ficha: '2589634' },
-    { time: '10:30', name: 'Carlos Rodríguez', status: 'pending', ficha: '2589635' },
-    { time: '14:00', name: 'María López Santos', status: 'pending', ficha: '2589636' },
-  ];
-
-  const criticalCases = [
-    { name: 'Juan Martínez', level: 'Crítico', lastContact: 'Hace 2 días', ficha: '2589637' },
-    { name: 'Laura Pérez', level: 'En Observación', lastContact: 'Hace 1 día', ficha: '2589638' },
-    { name: 'Pedro González', level: 'Crítico', lastContact: 'Hace 3 días', ficha: '2589639' },
-  ];
+  const fechaHoyTexto = formatearFechaHoyLarga();
 
   return (
     <div className="space-y-8">
@@ -200,7 +331,7 @@ export function Dashboard() {
         </div>
         <div className="text-right">
           <p className="text-sm text-slate-500" style={isDark ? { color: '#cbd5e1' } : undefined}>Hoy</p>
-          <p className="text-slate-800" style={isDark ? { color: 'white' } : undefined}>Miércoles, 3 de Diciembre 2025</p>
+          <p className="text-slate-800" style={isDark ? { color: 'white' } : undefined}>{fechaHoyTexto}</p>
         </div>
       </div>
 
@@ -425,27 +556,39 @@ export function Dashboard() {
       <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl p-6 border border-purple-100/50 dark:border-slate-600/50 shadow-sm">
         <div className="mb-6">
           <h2 className="text-xl text-slate-800 mb-1" style={isDark ? { color: 'white' } : undefined}>Actividad Mensual</h2>
-          <p className="text-sm text-slate-500" style={isDark ? { color: '#e2e8f0' } : undefined}>Comparativa de citas, seguimientos y mensajes</p>
+          <p className="text-sm text-slate-500" style={isDark ? { color: '#e2e8f0' } : undefined}>
+            Comparativa de citas, seguimientos y mensajes (últimos 6 meses)
+          </p>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={monthlyData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-            <XAxis dataKey="mes" stroke={chartStroke} />
-            <YAxis stroke={chartStroke} />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.95)', 
-                border: isDark ? '1px solid #475569' : '1px solid #e5e7eb',
-                borderRadius: '8px',
-                color: isDark ? '#f8fafc' : undefined
-              }}
-            />
-            <Legend wrapperStyle={isDark ? { color: '#e2e8f0' } : undefined} />
-            <Line type="monotone" dataKey="citas" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} name="Citas" />
-            <Line type="monotone" dataKey="seguimientos" stroke="#8b5cf6" strokeWidth={3} dot={{ fill: '#8b5cf6', r: 5 }} name="Seguimientos" />
-            <Line type="monotone" dataKey="mensajes" stroke="#22c55e" strokeWidth={3} dot={{ fill: '#22c55e', r: 5 }} name="Mensajes" />
-          </LineChart>
-        </ResponsiveContainer>
+        {monthlyActivityLoading ? (
+          <div className="flex h-[300px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-500" aria-label="Cargando" />
+          </div>
+        ) : monthlyActivityData.length === 0 ? (
+          <div className={`flex h-[300px] items-center justify-center text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            No hay datos de actividad para mostrar.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={monthlyActivityData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+              <XAxis dataKey="mes" stroke={chartStroke} />
+              <YAxis stroke={chartStroke} allowDecimals={false} />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.95)', 
+                  border: isDark ? '1px solid #475569' : '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  color: isDark ? '#f8fafc' : undefined
+                }}
+              />
+              <Legend wrapperStyle={isDark ? { color: '#e2e8f0' } : undefined} />
+              <Line type="monotone" dataKey="citas" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} name="Citas" />
+              <Line type="monotone" dataKey="seguimientos" stroke="#8b5cf6" strokeWidth={3} dot={{ fill: '#8b5cf6', r: 5 }} name="Seguimientos" />
+              <Line type="monotone" dataKey="mensajes" stroke="#22c55e" strokeWidth={3} dot={{ fill: '#22c55e', r: 5 }} name="Mensajes" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -456,28 +599,38 @@ export function Dashboard() {
             <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="flex flex-col gap-3 flex-1 min-h-0">
-            {recentAppointments.map((apt, index) => (
-              <div
-                key={index}
-                className={`flex items-center gap-4 p-4 rounded-xl border transition-all flex-1 min-h-0 ${
-                  isDark
-                    ? 'bg-transparent border-slate-600/50 hover:border-slate-500/50'
-                    : 'bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/30 hover:border-purple-200/50'
-                }`}
-              >
-                <div className="text-center min-w-[60px]">
-                  <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Hora</p>
-                  <p className={isDark ? '' : 'text-purple-700'} style={isDark ? { color: '#94a3b8' } : undefined}>{apt.time}</p>
-                </div>
-                <div className="flex-1">
-                  <p className={isDark ? 'text-white' : 'text-slate-800'}>{apt.name}</p>
-                  <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Ficha: {apt.ficha}</p>
-                </div>
-                <div className="px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs">
-                  Pendiente
-                </div>
+            {citasHoyListLoading ? (
+              <div className="flex flex-1 min-h-[120px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-500" aria-label="Cargando citas" />
               </div>
-            ))}
+            ) : citasHoyList.length === 0 ? (
+              <div className={`flex flex-1 min-h-[120px] items-center justify-center text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                No hay citas programadas para hoy.
+              </div>
+            ) : (
+              citasHoyList.map((apt) => (
+                <div
+                  key={apt.citCodigo}
+                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all flex-1 min-h-0 ${
+                    isDark
+                      ? 'bg-transparent border-slate-600/50 hover:border-slate-500/50'
+                      : 'bg-gradient-to-r from-slate-50 to-purple-50/30 border-purple-100/30 hover:border-purple-200/50'
+                  }`}
+                >
+                  <div className="text-center min-w-[60px]">
+                    <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Hora</p>
+                    <p className={isDark ? '' : 'text-purple-700'} style={isDark ? { color: '#94a3b8' } : undefined}>{apt.time}</p>
+                  </div>
+                  <div className="flex-1">
+                    <p className={isDark ? 'text-white' : 'text-slate-800'}>{apt.name}</p>
+                    <p className={`text-sm ${isDark ? '' : 'text-slate-500'}`} style={isDark ? { color: '#94a3b8' } : undefined}>Ficha: {apt.ficha}</p>
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-xs font-medium ${claseBadgeEstadoCita(apt.estadoRaw, isDark)}`}>
+                    {apt.statusLabel}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -488,45 +641,55 @@ export function Dashboard() {
             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
           </div>
           <div className="flex flex-col gap-3 flex-1 min-h-0">
-            {criticalCases.map((case_, index) => {
-              const isCritico = case_.level === 'Crítico';
-              const boxStyle = isDark
-                ? {
-                    background: 'transparent',
-                    borderWidth: 2,
-                    borderLeftWidth: 4,
-                    borderStyle: 'solid',
-                    borderColor: isCritico ? '#ef4444' : '#facc15',
-                  }
-                : undefined;
-              return (
-              <div
-                key={index}
-                className={`p-4 rounded-xl flex-1 min-h-0 flex flex-col ${
-                  isCritico
-                    ? isDark ? '' : 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20'
-                    : isDark ? '' : 'border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20'
-                }`}
-                style={boxStyle}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <p className={isDark ? 'text-white' : 'text-slate-800'}>{case_.name}</p>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      isCritico
-                        ? isDark ? 'text-white' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                        : isDark ? 'text-slate-900' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300'
-                    }`}
-                    style={isDark ? (isCritico ? { backgroundColor: '#dc2626' } : { backgroundColor: '#facc15' }) : undefined}
-                  >
-                    {case_.level}
-                  </span>
-                </div>
-                <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-500'}`}>Ficha: {case_.ficha}</p>
-                <p className={`text-xs mt-1 ${isDark ? 'text-white' : 'text-slate-500'}`}>{case_.lastContact}</p>
+            {casosPrioritariosLoading ? (
+              <div className="flex flex-1 min-h-[120px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-red-500" aria-label="Cargando casos prioritarios" />
               </div>
-            );
-            })}
+            ) : casosPrioritarios.length === 0 ? (
+              <div className={`flex flex-1 min-h-[120px] items-center justify-center text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                No hay casos en estado crítico u observación.
+              </div>
+            ) : (
+              casosPrioritarios.map((case_) => {
+                const isCritico = case_.nivel === 'critico';
+                const boxStyle = isDark
+                  ? {
+                      background: 'transparent',
+                      borderWidth: 2,
+                      borderLeftWidth: 4,
+                      borderStyle: 'solid',
+                      borderColor: isCritico ? '#ef4444' : '#facc15',
+                    }
+                  : undefined;
+                return (
+                  <div
+                    key={case_.segCodigo}
+                    className={`p-4 rounded-xl flex-1 min-h-0 flex flex-col ${
+                      isCritico
+                        ? isDark ? '' : 'border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-900/20'
+                        : isDark ? '' : 'border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/20'
+                    }`}
+                    style={boxStyle}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className={isDark ? 'text-white' : 'text-slate-800'}>{case_.nombre}</p>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          isCritico
+                            ? isDark ? 'text-white' : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                            : isDark ? 'text-slate-900' : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300'
+                        }`}
+                        style={isDark ? (isCritico ? { backgroundColor: '#dc2626' } : { backgroundColor: '#facc15' }) : undefined}
+                      >
+                        {case_.nivelLabel}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${isDark ? 'text-white' : 'text-slate-500'}`}>Ficha: {case_.ficha}</p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-white' : 'text-slate-500'}`}>{case_.tiempoTexto}</p>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

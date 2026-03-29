@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
@@ -29,7 +29,16 @@ import {
   type RecomendacionItem,
   type CrearRecomendacionPayload,
 } from '../lib/recomendacion';
-import { editarSeguimiento, eliminarSeguimiento, ESTADOS_SEGUIMIENTO_API, type SeguimientoDetalle } from '../lib/seguimiento';
+import {
+  editarSeguimiento,
+  eliminarSeguimiento,
+  ESTADOS_SEGUIMIENTO_API,
+  etiquetaEstadoSeguimiento,
+  normalizarEstadoSeguimientoApi,
+  OPCIONES_ESTADO_SEGUIMIENTO_UI,
+  type EstadoSeguimientoApi,
+  type SeguimientoDetalle,
+} from '../lib/seguimiento';
 import {
   getEstadisticaEmocionalMensual,
   getTendenciaEmocional,
@@ -37,6 +46,15 @@ import {
   type TendenciaResponse,
 } from '../lib/emociones';
 import { uploadSignatureImage, listImages, deleteImage, type ImageItem } from '../lib/images';
+import {
+  getTestsPorAprendiz,
+  getMisPlantillas,
+  asignarTest,
+  etiquetaEstadoTest,
+  claseBadgeEstadoTest,
+  type TestAsignadoApi,
+  type PlantillaResumen,
+} from '../lib/tests';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -202,6 +220,44 @@ function SeguimientoReadonlyField({
   );
 }
 
+function EstadoSeguimientoBadge({
+  estadoApi,
+  isDark,
+}: {
+  estadoApi?: string | null;
+  isDark: boolean;
+}) {
+  const n = normalizarEstadoSeguimientoApi(estadoApi);
+  const label = etiquetaEstadoSeguimiento(estadoApi);
+  const isCrit = n === ESTADOS_SEGUIMIENTO_API.critico;
+  const isObs = n === ESTADOS_SEGUIMIENTO_API.observacion;
+  if (!isDark) {
+    return (
+      <span
+        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+          isCrit ? 'bg-red-100 text-red-800' : isObs ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+        }`}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+      style={
+        isCrit
+          ? { backgroundColor: '#dc2626', color: '#fff' }
+          : isObs
+            ? { backgroundColor: '#f59e0b', color: '#0f172a' }
+            : { backgroundColor: '#16a34a', color: '#fff' }
+      }
+    >
+      {label}
+    </span>
+  );
+}
+
 /** Estilos inline en oscuro: el preflight pone button { background transparent; color inherit } y anula utilidades. */
 const chipEditDarkStyle: CSSProperties = {
   backgroundColor: 'rgba(180, 83, 9, 0.58)',
@@ -266,13 +322,80 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
   const [showEditarFirmaModal, setShowEditarFirmaModal] = useState(false);
   const [editingInfo, setEditingInfo] = useState(false);
   const [editandoInfo, setEditandoInfo] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{
+    descripcion: string;
+    motivo: string;
+    areaRemitido: string;
+    fechaInicio: string;
+    fechaFin: string;
+    estadoSeguimiento: EstadoSeguimientoApi;
+  }>({
     descripcion: '',
     motivo: '',
     areaRemitido: '',
     fechaInicio: '',
     fechaFin: '',
+    estadoSeguimiento: ESTADOS_SEGUIMIENTO_API.estable,
   });
+
+  /* ── Tests state ── */
+  const [testsAsignados, setTestsAsignados] = useState<TestAsignadoApi[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+  const [plantillasDisponibles, setPlantillasDisponibles] = useState<PlantillaResumen[]>([]);
+  const [showAsignarModal, setShowAsignarModal] = useState(false);
+  const [asignandoTest, setAsignandoTest] = useState(false);
+  const [selectedPlantilla, setSelectedPlantilla] = useState<number | null>(null);
+  const [expandedTestId, setExpandedTestId] = useState<number | null>(null);
+
+  /** PK de aprendiz_ficha (AprFicCodigo). No confundir con el número de ficha visible (FicCodigo). */
+  const aprendizFichaPk = useMemo(() => {
+    const s = seguimiento?.segAprendizFk;
+    if (s != null && Number.isFinite(Number(s))) return Number(s);
+    const a = seguimiento?.aprendiz;
+    const pk = a?.aprFicCodigo ?? a?.AprFicCodigo;
+    if (pk != null && Number.isFinite(Number(pk))) return Number(pk);
+    return null;
+  }, [seguimiento?.segAprendizFk, seguimiento?.aprendiz]);
+
+  const cargarTests = useCallback(async () => {
+    if (aprendizFichaPk == null) return;
+    setLoadingTests(true);
+    try {
+      setTestsAsignados(await getTestsPorAprendiz(aprendizFichaPk));
+    } catch {
+      setTestsAsignados([]);
+    } finally {
+      setLoadingTests(false);
+    }
+  }, [aprendizFichaPk]);
+
+  useEffect(() => { if (activeTab === 'test') cargarTests(); }, [activeTab, cargarTests]);
+
+  const handleAsignar = async () => {
+    if (!selectedPlantilla) return;
+    if (aprendizFichaPk == null) {
+      window.alert('No se pudo identificar la ficha del aprendiz. Cierra el perfil y vuelve a abrir el seguimiento.');
+      return;
+    }
+    setAsignandoTest(true);
+    try {
+      await asignarTest(selectedPlantilla, aprendizFichaPk);
+      setShowAsignarModal(false);
+      setSelectedPlantilla(null);
+      await cargarTests();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error al asignar el test.';
+      window.alert(msg);
+    } finally {
+      setAsignandoTest(false);
+    }
+  };
+
+  const abrirModalAsignar = async () => {
+    setShowAsignarModal(true);
+    setSelectedPlantilla(null);
+    try { setPlantillasDisponibles(await getMisPlantillas()); } catch { setPlantillasDisponibles([]); }
+  };
 
   const tabs = [
     { id: 'info' as Tab, label: 'Información', icon: Info },
@@ -566,6 +689,9 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                               fechaFin: seguimiento.fechaFinSeguimiento
                                 ? new Date(seguimiento.fechaFinSeguimiento).toISOString().slice(0, 10)
                                 : '',
+                              estadoSeguimiento:
+                                normalizarEstadoSeguimientoApi(seguimiento.estadoSeguimiento) ??
+                                ESTADOS_SEGUIMIENTO_API.estable,
                             });
                             setEditingInfo(true);
                           }}
@@ -619,7 +745,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                             segTrimestreActual: seguimiento.trimestreActual ?? undefined,
                             segMotivo: editForm.motivo || undefined,
                             segDescripcion: editForm.descripcion || undefined,
-                            segEstadoSeguimiento: seguimiento.estadoSeguimiento ?? ESTADOS_SEGUIMIENTO_API.estable,
+                            segEstadoSeguimiento: editForm.estadoSeguimiento,
                             segFirmaProfesional: seguimiento.firmaProfesional ?? undefined,
                             segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
                           });
@@ -688,6 +814,31 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                             placeholder="Dejar vacío si no está finalizado"
                           />
                         </div>
+                        <div className="sm:col-span-2">
+                          <label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Estado del seguimiento
+                          </label>
+                          <select
+                            value={editForm.estadoSeguimiento}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                estadoSeguimiento: e.target.value as EstadoSeguimientoApi,
+                              }))
+                            }
+                            disabled={editandoInfo}
+                            className={`${inputBase}  ${isDark ? inputDark : inputLight} cursor-pointer`}
+                          >
+                            {OPCIONES_ESTADO_SEGUIMIENTO_UI.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <p className={`mt-1 text-[11px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Clasificación clínica del caso (visible en listas y dashboard).
+                          </p>
+                        </div>
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button
@@ -728,7 +879,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                       }`}
                     >
                       <div
-                        className={`border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                        className={`border-b px-4 py-2 text-sm font-semibold uppercase tracking-wider ${
                           isDark
                             ? 'border-slate-600/80 bg-slate-900/60 text-purple-200/90'
                             : 'border-purple-100/80 bg-purple-50/50 text-purple-800/90'
@@ -754,6 +905,22 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                           isDark={isDark}
                           value={seguimiento?.areaRemitido?.trim() || '—'}
                         />
+                        <div className="sm:col-span-2">
+                          <p
+                            className={`mb-1 text-[11px] font-semibold uppercase tracking-wider ${
+                              isDark ? 'text-slate-400' : 'text-slate-500'
+                            }`}
+                          >
+                            Estado del seguimiento
+                          </p>
+                          <EstadoSeguimientoBadge
+                            estadoApi={seguimiento?.estadoSeguimiento}
+                            isDark={isDark}
+                          />
+                          <p className={`mt-4 text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Para cambiarlo, usa <strong className="font-medium">Editar información</strong> y el campo del mismo nombre.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -825,7 +992,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                     }`}
                   >
                     <div
-                      className={`col-span-full border-b px-4 py-2.5 text-xs font-semibold uppercase tracking-wider ${
+                      className={`col-span-full border-b px-4 py-2 text-sm font-semibold uppercase tracking-wider ${
                         isDark
                           ? 'border-slate-600/80 bg-slate-900/50 text-slate-300'
                           : 'border-slate-200/90 bg-white/60 text-slate-600'
@@ -1119,41 +1286,109 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
 
               {activeTab === 'test' && (
                 <div>
-                  <h3 className={`text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-800'}`}>Test de Salud Mental</h3>
-                  <div className={`rounded-xl p-6 mb-6 ${isDark ? 'bg-slate-700/50' : 'bg-gradient-to-r from-slate-50 to-purple-50/30'}`}>
-                    <div className="text-center mb-4">
-                      <p className={`text-sm mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Resultado General</p>
-                      <div className="text-5xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                        7.5/10
-                      </div>
-                      <span className={`px-4 py-2 rounded-full text-sm ${isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700'}`}>
-                        Salud Mental Estable
-                      </span>
-                    </div>
-                    <p className={`text-sm text-center ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                      Última evaluación: 28 de Noviembre 2025
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>Tests / Evaluaciones</h3>
+                    <button
+                      type="button"
+                      onClick={abrirModalAsignar}
+                      disabled={aprendizFichaPk == null}
+                      title={aprendizFichaPk == null ? 'Falta el identificador interno de ficha. Vuelve a abrir el seguimiento.' : undefined}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
+                    >
+                      <Plus className="w-4 h-4" /> Asignar Test
+                    </button>
+                  </div>
+                  {aprendizFichaPk == null && (
+                    <p className={`text-sm mb-3 rounded-lg px-3 py-2 border ${isDark ? 'border-amber-700/60 bg-amber-950/30 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                      No se cargó el identificador de ficha del aprendiz. Cierra este perfil y ábrelo de nuevo desde Seguimientos para poder listar y asignar tests.
                     </p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Estado Emocional</p>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full" style={{ width: `${resumen.promedioEscala * 10}%` }}></div>
-                      </div>
+                  )}
+
+                  {loadingTests && (
+                    <div className="flex items-center justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-purple-500" /></div>
+                  )}
+
+                  {!loadingTests && testsAsignados.length === 0 && (
+                    <div className={`rounded-xl p-8 text-center border ${isDark ? 'bg-slate-800/60 border-slate-600 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                      <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                      <p>No hay tests asignados a este aprendiz.</p>
                     </div>
-                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Nivel de Estrés</p>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full" style={{ width: '45%' }}></div>
-                      </div>
+                  )}
+
+                  {!loadingTests && testsAsignados.length > 0 && (
+                    <div className="space-y-3">
+                      {testsAsignados.map((t) => (
+                        <div key={t.testGenCodigo} className={`rounded-xl border overflow-hidden ${isDark ? 'bg-slate-800/70 border-slate-600' : 'bg-white border-purple-100/50 shadow-sm'}`}>
+                          <button type="button" onClick={() => setExpandedTestId(expandedTestId === t.testGenCodigo ? null : t.testGenCodigo)} className="w-full flex items-center justify-between p-4 text-left">
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-medium truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{t.plantillaNombre ?? 'Test sin nombre'}</p>
+                              <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                {t.fechaRealizacion ? new Date(t.fechaRealizacion).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha'}
+                                {t.plantillaDescripcion ? ` · ${t.plantillaDescripcion}` : ''}
+                              </p>
+                            </div>
+                            <span className={`ml-3 px-3 py-1 rounded-full text-xs font-medium shrink-0 ${claseBadgeEstadoTest(t.testGenEstadoTest)}`}>{etiquetaEstadoTest(t.testGenEstadoTest)}</span>
+                          </button>
+
+                          {expandedTestId === t.testGenCodigo && (
+                            <div className={`px-4 pb-4 border-t ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+                              {t.respuestas && t.respuestas.length > 0 ? (
+                                <div className="mt-3 space-y-2">
+                                  <p className={`text-xs font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Respuestas:</p>
+                                  {t.respuestas.map((r, ri) => (
+                                    <div key={ri} className={`flex items-start gap-2 p-2 rounded-lg text-sm ${isDark ? 'bg-slate-700/40' : 'bg-slate-50'}`}>
+                                      <span className={`shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>{ri + 1}</span>
+                                      <div>
+                                        <p className={isDark ? 'text-slate-200' : 'text-slate-700'}>{r.preguntaTexto ?? '—'}</p>
+                                        <p className={`text-xs mt-0.5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>→ {r.opcionTexto ?? '—'}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className={`mt-3 text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  {t.testGenEstadoTest === 'completado' ? 'Sin respuestas registradas.' : 'El aprendiz aún no ha respondido este test.'}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-white border-purple-100/50'}`}>
-                      <p className={`text-sm mb-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>Autoestima</p>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={{ width: '75%' }}></div>
+                  )}
+
+                  {showAsignarModal && createPortal(
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                      <div className={`w-full max-w-md mx-4 rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Asignar Test</h4>
+                          <button onClick={() => setShowAsignarModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><X className="w-5 h-5 text-slate-500" /></button>
+                        </div>
+                        {plantillasDisponibles.length === 0 ? (
+                          <p className={`text-sm py-6 text-center ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>No hay plantillas de test creadas. Crea una primero desde "Plantillas de Test" en el menú.</p>
+                        ) : (
+                          <>
+                            <p className={`text-sm mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>Selecciona una plantilla:</p>
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {plantillasDisponibles.map((p) => (
+                                <button key={p.plaTstCodigo} type="button" onClick={() => setSelectedPlantilla(p.plaTstCodigo)} className={`w-full text-left p-3 rounded-xl border transition-all ${selectedPlantilla === p.plaTstCodigo ? (isDark ? 'border-purple-500 bg-purple-900/30' : 'border-purple-500 bg-purple-50') : (isDark ? 'border-slate-600 hover:border-slate-500' : 'border-slate-200 hover:border-slate-300')}`}>
+                                  <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>{p.plaTstNombre}</p>
+                                  <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{p.totalPreguntas} pregunta{p.totalPreguntas !== 1 ? 's' : ''}</p>
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex justify-end gap-3 mt-4">
+                              <button onClick={() => setShowAsignarModal(false)} className={`px-4 py-2 rounded-lg text-sm ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}>Cancelar</button>
+                              <button onClick={handleAsignar} disabled={!selectedPlantilla || asignandoTest} className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium hover:shadow-lg disabled:opacity-50">
+                                {asignandoTest && <Loader2 className="w-4 h-4 animate-spin" />}Asignar
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </div>
-                  </div>
+                    </div>,
+                    document.body
+                  )}
                 </div>
               )}
 
@@ -1364,7 +1599,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                     }
                   }}
                   style={modalDangerConfirmBtnStyle}
-                  className="inline-flex min-h-[40px] w-full shrink-0 items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45 sm:w-auto sm:min-w-[10rem]"
+                  className="flex w-full shrink-0 items-center justify-center px-4 py-3 text-sm font-semibold transition-[filter,opacity] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45 sm:w-auto sm:min-w-[10rem]"
                 >
                   {eliminandoSeguimiento ? (
                     <>
@@ -1373,7 +1608,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                     </>
                   ) : (
                     <>
-                      <Trash2 className="h-4 w-4 shrink-0 text-white opacity-95" aria-hidden />
+                      <Trash2 className="h-5 w-5 shrink-0 text-white opacity-95 mr-4" aria-hidden />
                       Sí, eliminar
                     </>
                   )}
@@ -1461,7 +1696,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                 segTrimestreActual: seguimiento.trimestreActual ?? undefined,
                 segMotivo: seguimiento.motivo ?? undefined,
                 segDescripcion: seguimiento.descripcion ?? undefined,
-                segEstadoSeguimiento: ESTADOS_SEGUIMIENTO_API.estable,
+                segEstadoSeguimiento: ESTADOS_SEGUIMIENTO_API.completada,
                 segFirmaProfesional: firmaUrl,
                 segFirmaAprendiz: seguimiento.firmaAprendiz ?? undefined,
               });

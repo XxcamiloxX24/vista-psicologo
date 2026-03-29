@@ -2574,20 +2574,38 @@ html {
   scrollbar-gutter: stable;
 }
 
-/* Login: texto visible en inputs (modo claro = negro, modo oscuro = claro) */
+/* Login: siempre texto oscuro legible (no heredar tema oscuro del resto de la app) */
 .login-form input[type="email"],
 .login-form input[type="password"],
 .login-form input[type="text"] {
-  color: #000000 !important;
-  -webkit-text-fill-color: #000000 !important;
-  caret-color: #000000;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  background-color: #ffffff !important;
+}
+.login-form input[type="email"]::placeholder,
+.login-form input[type="password"]::placeholder,
+.login-form input[type="text"]::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1;
 }
 .dark .login-form input[type="email"],
 .dark .login-form input[type="password"],
 .dark .login-form input[type="text"] {
-  color: #e2e8f0 !important;
-  -webkit-text-fill-color: #e2e8f0 !important;
-  caret-color: #e2e8f0;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  background-color: #ffffff !important;
+}
+.login-form input:-webkit-autofill,
+.login-form input:-webkit-autofill:hover,
+.login-form input:-webkit-autofill:focus,
+.login-form input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #0f172a;
+  transition: background-color 5000s ease-in-out 0s;
+  box-shadow: 0 0 0px 1000px #ffffff inset !important;
 }
 
 /* FullCalendar - modo oscuro cuando está dentro de .dark */

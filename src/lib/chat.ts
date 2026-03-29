@@ -60,6 +60,21 @@ export async function getConversations(): Promise<Conversation[]> {
   return response.json();
 }
 
+export interface MensajesPorMesFila {
+  año: number;
+  mes: number;
+  total: number;
+}
+
+/** Mensajes agrupados por año/mes en las conversaciones del psicólogo (MongoDB). Falla silenciosamente si el chat no está disponible. */
+export async function getMensajesPorMes(meses = 6): Promise<MensajesPorMesFila[]> {
+  const url = `${CHAT_API_URL}/api/chat/stats/mensajes-por-mes?meses=${meses}`;
+  const response = await authFetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
 export async function getChatHistory(appointmentId: number): Promise<ChatMessage[]> {
   const response = await authFetch(`${CHAT_API_URL}/api/chat/history/${appointmentId}`);
 

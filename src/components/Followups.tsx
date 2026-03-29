@@ -31,6 +31,7 @@ interface Student {
 
 function mapEstadoToStatus(estado: string): 'stable' | 'observation' | 'critical' {
   const e = (estado || '').toLowerCase();
+  if (e.includes('completada') || e.includes('finaliz')) return 'stable';
   if (e.includes('estable')) return 'stable';
   if (e.includes('observ') || e.includes('observacion')) return 'observation';
   if (e.includes('critic')) return 'critical';
