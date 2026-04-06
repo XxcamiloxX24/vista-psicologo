@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Clock,
@@ -65,9 +65,16 @@ const TIPOS_CITA = ['presencial', 'videollamada', 'chat'] as const;
 
 interface CitasPendientesProps {
   onSuccess?: () => void;
+  /** Si está definido tras cargar pendientes, abre el modal Programar para esa cita (p. ej. notificación). */
+  openProgramarForCitaId?: number | null;
+  onConsumedOpenProgramarForCita?: () => void;
 }
 
-export function CitasPendientes({ onSuccess }: CitasPendientesProps) {
+export function CitasPendientes({
+  onSuccess,
+  openProgramarForCitaId = null,
+  onConsumedOpenProgramarForCita,
+}: CitasPendientesProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [pendientes, setPendientes] = useState<CitaApi[]>([]);
@@ -100,7 +107,7 @@ export function CitasPendientes({ onSuccess }: CitasPendientesProps) {
     load();
   }, [load]);
 
-  const openProgramar = (c: CitaApi) => {
+  const openProgramar = useCallback((c: CitaApi) => {
     const hoy = new Date();
     setFormFecha(hoy.toISOString().split('T')[0]);
     setFormHoraInicio('09:00');
@@ -109,7 +116,33 @@ export function CitasPendientes({ onSuccess }: CitasPendientesProps) {
     setFormTipo(typeof tipo === 'string' ? tipo : 'presencial');
     setFormError(null);
     setModalCita(c);
-  };
+  }, []);
+
+  const consumedProgramarRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (openProgramarForCitaId == null) {
+      consumedProgramarRef.current = null;
+      return;
+    }
+    if (loading) return;
+    if (consumedProgramarRef.current === openProgramarForCitaId) return;
+
+    const c = pendientes.find(
+      (x) =>
+        (getCitaField<number>(x as unknown as Record<string, unknown>, 'citCodigo', 'CitCodigo') ?? x.citCodigo) ===
+        openProgramarForCitaId
+    );
+    if (c) openProgramar(c);
+    consumedProgramarRef.current = openProgramarForCitaId;
+    onConsumedOpenProgramarForCita?.();
+  }, [
+    openProgramarForCitaId,
+    loading,
+    pendientes,
+    openProgramar,
+    onConsumedOpenProgramarForCita,
+  ]);
 
   const handleProgramar = async () => {
     if (!modalCita) return;

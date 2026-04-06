@@ -103,6 +103,9 @@ export default function App() {
   const [profileSavedToast, setProfileSavedToast] = useState(false);
   /** appointmentId para seleccionar al abrir Mensajes desde una notificación de chat */
   const [chatToSelectFromNotification, setChatToSelectFromNotification] = useState<number | null>(null);
+  /** citCodigo para abrir detalle desde notificación CITA_SOLICITADA */
+  const [pendingCitaFocusId, setPendingCitaFocusId] = useState<number | null>(null);
+  const clearPendingCitaFocus = useCallback(() => setPendingCitaFocusId(null), []);
 
   useEffect(() => {
     if (!isLoggingOut) return;
@@ -235,6 +238,8 @@ export default function App() {
       case "appointments":
         return (
           <Appointments
+            focusPendingCitaId={pendingCitaFocusId}
+            onConsumedPendingCitaFocus={clearPendingCitaFocus}
             onViewCitaDetalle={(cita) => {
               setCitaDetalleConfig({ cita });
               setActiveSection("cita-detalle");
@@ -252,6 +257,8 @@ export default function App() {
           />
         ) : (
           <Appointments
+            focusPendingCitaId={pendingCitaFocusId}
+            onConsumedPendingCitaFocus={clearPendingCitaFocus}
             onViewCitaDetalle={(cita) => {
               setCitaDetalleConfig({ cita });
               setActiveSection("cita-detalle");
@@ -404,6 +411,9 @@ export default function App() {
           onLogout={handleLogout}
           onNotificationChatClick={(appointmentId) => {
             if (appointmentId != null) setChatToSelectFromNotification(appointmentId);
+          }}
+          onCitaSolicitudNotificationClick={(citaId) => {
+            if (citaId != null) setPendingCitaFocusId(citaId);
           }}
         />
 

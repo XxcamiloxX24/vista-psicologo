@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2, PenLine, Upload } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNotifications } from '../contexts/NotificationsContext';
 import { changePassword } from '../lib/auth';
 import { listImages, uploadSignatureImage, deleteImage, type ImageItem } from '../lib/images';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -352,6 +353,7 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
   const [openSection, setOpenSection] = useState<string | null>('profile');
   const { psychologist, loading } = usePsychologist();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { preferences, setPreference } = useNotifications();
   const isDark = resolvedTheme === 'dark';
   const settingsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -765,27 +767,24 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
 
                   {section.id === 'notifications' && (
                     <div className="space-y-3">
-                      <div className={`flex items-center justify-between p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
-                        <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>Nuevas citas</span>
-                        <label className="relative inline-block w-12 h-6">
-                          <input type="checkbox" defaultChecked className="opacity-0 w-0 h-0 peer" />
-                          <span className="absolute cursor-pointer inset-0 bg-slate-300 rounded-full transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-purple-600 before:absolute before:content-[''] before:h-5 before:w-5 before:left-0.5 before:bottom-0.5 before:bg-white before:rounded-full before:transition-all peer-checked:before:translate-x-6"></span>
-                        </label>
-                      </div>
-                      <div className={`flex items-center justify-between p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
-                        <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>Mensajes nuevos</span>
-                        <label className="relative inline-block w-12 h-6">
-                          <input type="checkbox" defaultChecked className="opacity-0 w-0 h-0 peer" />
-                          <span className="absolute cursor-pointer inset-0 bg-slate-300 rounded-full transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-purple-600 before:absolute before:content-[''] before:h-5 before:w-5 before:left-0.5 before:bottom-0.5 before:bg-white before:rounded-full before:transition-all peer-checked:before:translate-x-6"></span>
-                        </label>
-                      </div>
-                      <div className={`flex items-center justify-between p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
-                        <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>Casos críticos</span>
-                        <label className="relative inline-block w-12 h-6">
-                          <input type="checkbox" defaultChecked className="opacity-0 w-0 h-0 peer" />
-                          <span className="absolute cursor-pointer inset-0 bg-slate-300 rounded-full transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-purple-600 before:absolute before:content-[''] before:h-5 before:w-5 before:left-0.5 before:bottom-0.5 before:bg-white before:rounded-full before:transition-all peer-checked:before:translate-x-6"></span>
-                        </label>
-                      </div>
+                      {([
+                        { key: 'citas' as const, label: 'Nuevas citas' },
+                        { key: 'mensajes' as const, label: 'Mensajes nuevos' },
+                        { key: 'casosCriticos' as const, label: 'Casos críticos' },
+                      ]).map(({ key, label }) => (
+                        <div key={key} className={`flex items-center justify-between p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                          <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>{label}</span>
+                          <label className="relative inline-block w-12 h-6">
+                            <input
+                              type="checkbox"
+                              checked={preferences[key]}
+                              onChange={(e) => setPreference(key, e.target.checked)}
+                              className="opacity-0 w-0 h-0 peer"
+                            />
+                            <span className="absolute cursor-pointer inset-0 bg-slate-300 rounded-full transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-purple-600 before:absolute before:content-[''] before:h-5 before:w-5 before:left-0.5 before:bottom-0.5 before:bg-white before:rounded-full before:transition-all peer-checked:before:translate-x-6"></span>
+                          </label>
+                        </div>
+                      ))}
                     </div>
                   )}
 

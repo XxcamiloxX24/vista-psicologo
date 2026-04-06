@@ -17,6 +17,9 @@ import { getCitasAgenda, getSolicitudesPendientes, type CitaApi } from '../lib/c
 
 interface AppointmentsProps {
   onViewCitaDetalle?: (cita: CitaApi) => void;
+  /** Desde notificación en vivo: ir a solicitudes pendientes y abrir esta cita */
+  focusPendingCitaId?: number | null;
+  onConsumedPendingCitaFocus?: () => void;
 }
 import type { EventClickArg } from '@fullcalendar/core';
 import { CitasPendientes } from './CitasPendientes';
@@ -190,7 +193,11 @@ function toYYYYMMDD(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function Appointments({ onViewCitaDetalle }: AppointmentsProps) {
+export function Appointments({
+  onViewCitaDetalle,
+  focusPendingCitaId = null,
+  onConsumedPendingCitaFocus,
+}: AppointmentsProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -235,6 +242,11 @@ export function Appointments({ onViewCitaDetalle }: AppointmentsProps) {
   const handleDatesSet = useCallback((arg: { start: Date; end: Date }) => {
     fetchCitas(arg.start, arg.end);
   }, [fetchCitas]);
+
+  useEffect(() => {
+    if (focusPendingCitaId == null) return;
+    setTab('pendientes');
+  }, [focusPendingCitaId]);
 
   const events = useMemo(() => {
     return citas
@@ -311,7 +323,11 @@ export function Appointments({ onViewCitaDetalle }: AppointmentsProps) {
             Solicitudes pendientes
           </button>
         </div>
-        <CitasPendientes onSuccess={() => getSolicitudesPendientes().then((l) => setPendientesCount(l.length)).catch(() => setPendientesCount(0))} />
+        <CitasPendientes
+          onSuccess={() => getSolicitudesPendientes().then((l) => setPendientesCount(l.length)).catch(() => setPendientesCount(0))}
+          openProgramarForCitaId={focusPendingCitaId}
+          onConsumedOpenProgramarForCita={onConsumedPendingCitaFocus}
+        />
       </div>
     );
   }

@@ -27,9 +27,17 @@ interface SidebarProps {
   onLogout: () => void;
   /** Se llama al hacer clic en una notificación de chat; appointmentId para abrir ese chat */
   onNotificationChatClick?: (appointmentId?: number) => void;
+  /** Solicitud de cita nueva (socket); abre Citas → pendientes y opcionalmente el detalle */
+  onCitaSolicitudNotificationClick?: (citaId?: number) => void;
 }
 
-export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificationChatClick }: SidebarProps) {
+export function Sidebar({
+  activeSection,
+  onSectionChange,
+  onLogout,
+  onNotificationChatClick,
+  onCitaSolicitudNotificationClick,
+}: SidebarProps) {
   const { displayName, initials, profileImageUrl } = usePsychologist();
   const { resolvedTheme } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
@@ -178,8 +186,13 @@ export function Sidebar({ activeSection, onSectionChange, onLogout, onNotificati
                             type="button"
                             onClick={() => {
                               markAsRead(n.id);
-                              onSectionChange('messages');
                               setNotificationsOpen(false);
+                              if (n.type === 'CITA_SOLICITADA') {
+                                onSectionChange('appointments');
+                                onCitaSolicitudNotificationClick?.(n.appointmentId);
+                                return;
+                              }
+                              onSectionChange('messages');
                               onNotificationChatClick?.(n.appointmentId);
                             }}
                             className={`w-full text-left p-3 hover:bg-purple-50/50 dark:hover:bg-slate-700/50 transition-colors ${!n.read ? 'bg-purple-50/30 dark:bg-slate-700/30' : ''}`}

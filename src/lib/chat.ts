@@ -1,7 +1,17 @@
 import { authFetch, getToken } from './auth';
 
+/** Misma URL que en .env.example; evita socket a localhost si Netlify no define VITE_CHAT_API_URL en el build. */
+const DEFAULT_PROD_CHAT_URL = 'https://chat-healthy-mind.onrender.com';
+
+function resolveChatApiUrl(): string {
+  const fromEnv = import.meta.env.VITE_CHAT_API_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+  if (import.meta.env.PROD) return DEFAULT_PROD_CHAT_URL;
+  return 'http://localhost:3000';
+}
+
 // Normalizar: quitar barra final para evitar doble "//" en las URLs
-const CHAT_API_URL = (import.meta.env.VITE_CHAT_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+const CHAT_API_URL = resolveChatApiUrl();
 
 export interface Conversation {
   _id: string;
