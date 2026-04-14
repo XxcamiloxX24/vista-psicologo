@@ -770,7 +770,7 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
                       {([
                         { key: 'citas' as const, label: 'Nuevas citas' },
                         { key: 'mensajes' as const, label: 'Mensajes nuevos' },
-                        { key: 'casosCriticos' as const, label: 'Casos críticos' },
+                        { key: 'casosCriticos' as const, label: 'Alertas emocionales y casos críticos' },
                       ]).map(({ key, label }) => (
                         <div key={key} className={`flex items-center justify-between p-4 rounded-xl ${isDark ? 'bg-slate-800' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
                           <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>{label}</span>

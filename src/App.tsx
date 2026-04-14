@@ -415,6 +415,12 @@ export default function App() {
           onCitaSolicitudNotificationClick={(citaId) => {
             if (citaId != null) setPendingCitaFocusId(citaId);
           }}
+          onRachaEmocionalClick={(seguimientoId) => {
+            if (seguimientoId != null) {
+              setTargetStudentId(String(seguimientoId));
+              setActiveSection("followups");
+            }
+          }}
         />
 
         <main

@@ -29,6 +29,8 @@ interface SidebarProps {
   onNotificationChatClick?: (appointmentId?: number) => void;
   /** Solicitud de cita nueva (socket); abre Citas → pendientes y opcionalmente el detalle */
   onCitaSolicitudNotificationClick?: (citaId?: number) => void;
+  /** Alerta emocional: abre Seguimientos con el seguimiento indicado */
+  onRachaEmocionalClick?: (seguimientoId?: number) => void;
 }
 
 export function Sidebar({
@@ -37,6 +39,7 @@ export function Sidebar({
   onLogout,
   onNotificationChatClick,
   onCitaSolicitudNotificationClick,
+  onRachaEmocionalClick,
 }: SidebarProps) {
   const { displayName, initials, profileImageUrl } = usePsychologist();
   const { resolvedTheme } = useTheme();
@@ -190,6 +193,11 @@ export function Sidebar({
                               if (n.type === 'CITA_SOLICITADA') {
                                 onSectionChange('appointments');
                                 onCitaSolicitudNotificationClick?.(n.appointmentId);
+                                return;
+                              }
+                              if (n.type === 'RACHA_EMOCIONAL') {
+                                onSectionChange('followups');
+                                onRachaEmocionalClick?.(n.seguimientoId);
                                 return;
                               }
                               onSectionChange('messages');

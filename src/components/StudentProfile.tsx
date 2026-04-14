@@ -17,9 +17,21 @@ import {
   Image,
   Upload,
   Loader2,
+  Bell,
+  Eye,
+  FileCheck2,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  getAlertasPorAprendiz,
+  marcarLeida,
+  marcarResuelta,
+  parseFechasJson,
+  parseEscalasJson,
+  etiquetaRegla,
+  type AlertaRachaEmocionalItem,
+} from '../lib/alertas';
 import {
   listarPorSeguimiento,
   crear,
@@ -92,7 +104,7 @@ interface StudentProfileProps {
   onSeguimientoDeleted?: () => void;
 }
 
-type Tab = 'info' | 'calendar' | 'charts' | 'test' | 'recommendations';
+type Tab = 'info' | 'calendar' | 'charts' | 'test' | 'recommendations' | 'alerts';
 
 function FirmaDisplayPlaceholder({
   label,
@@ -403,6 +415,7 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
     { id: 'charts' as Tab, label: 'Gráficos', icon: BarChart3 },
     { id: 'test' as Tab, label: 'Test', icon: ClipboardList },
     { id: 'recommendations' as Tab, label: 'Recomendaciones', icon: ListChecks },
+    { id: 'alerts' as Tab, label: 'Alertas', icon: Bell },
   ];
 
   const cargarRecomendaciones = useCallback(async () => {
@@ -424,6 +437,49 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
       cargarRecomendaciones();
     }
   }, [activeTab, cargarRecomendaciones]);
+
+  /* ── Alertas emocionales ── */
+  const [alertas, setAlertas] = useState<AlertaRachaEmocionalItem[]>([]);
+  const [alertasLoading, setAlertasLoading] = useState(false);
+  const [alertasError, setAlertasError] = useState<string | null>(null);
+  const [resolviendoId, setResolviendoId] = useState<number | null>(null);
+  const [notasResolucion, setNotasResolucion] = useState('');
+
+  const cargarAlertas = useCallback(async () => {
+    if (!student.aprendizId) return;
+    setAlertasLoading(true);
+    setAlertasError(null);
+    try {
+      const data = await getAlertasPorAprendiz(student.aprendizId);
+      setAlertas(data);
+    } catch (e) {
+      setAlertasError(e instanceof Error ? e.message : 'Error al cargar alertas.');
+    } finally {
+      setAlertasLoading(false);
+    }
+  }, [student.aprendizId]);
+
+  useEffect(() => {
+    if (activeTab === 'alerts') cargarAlertas();
+  }, [activeTab, cargarAlertas]);
+
+  const handleMarcarLeida = async (id: number) => {
+    try {
+      const updated = await marcarLeida(id);
+      setAlertas(prev => prev.map(a => a.areCodigo === id ? updated : a));
+    } catch { /* silently handled */ }
+  };
+
+  const handleMarcarResuelta = async (id: number) => {
+    try {
+      const updated = await marcarResuelta(id, notasResolucion.trim() || undefined);
+      setAlertas(prev => prev.map(a => a.areCodigo === id ? updated : a));
+      setResolviendoId(null);
+      setNotasResolucion('');
+    } catch { /* silently handled */ }
+  };
+
+  const alertasNuevas = alertas.filter(a => a.areEstado === 'nueva').length;
 
   /* ── Estadísticas emocionales (reales desde API) ── */
   const [emoMensual, setEmoMensual] = useState<EstadisticaMensualResponse | null>(null);
@@ -1472,6 +1528,179 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                   )}
                 </div>
               )}
+
+              {activeTab === 'alerts' && (
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${isDark ? 'bg-red-900/30' : 'bg-red-50'}`}>
+                        <AlertTriangle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
+                      </div>
+                      <div>
+                        <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>Alertas emocionales</h3>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Rachas de emociones de riesgo detectadas automáticamente</p>
+                      </div>
+                    </div>
+                    {alertasNuevas > 0 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-500 text-white">
+                        {alertasNuevas} {alertasNuevas === 1 ? 'nueva' : 'nuevas'}
+                      </span>
+                    )}
+                  </div>
+
+                  {alertasLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-2">
+                      <Loader2 className={`w-6 h-6 animate-spin ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Cargando alertas…</p>
+                    </div>
+                  ) : alertasError ? (
+                    <div className={`text-center py-16 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                      <p className="text-sm">{alertasError}</p>
+                      <button type="button" onClick={cargarAlertas} className={`mt-2 text-xs underline ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Reintentar</button>
+                    </div>
+                  ) : alertas.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <div className={`p-4 rounded-full ${isDark ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                        <CheckCircle2 className={`w-8 h-8 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+                      </div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>No se han detectado alertas emocionales</p>
+                      <p className={`text-xs text-center max-w-sm ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Se genera una alerta cuando los últimos 3 registros con emoción del aprendiz presentan categoría negativa/crítica o un promedio de escala igual o menor a 5.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {alertas.map((alerta) => {
+                        const fechas = parseFechasJson(alerta.areFechasJson);
+                        const escalas = parseEscalasJson(alerta.areEscalasJson);
+                        const esNueva = alerta.areEstado === 'nueva';
+                        const esLeida = alerta.areEstado === 'leida';
+                        const esResuelta = alerta.areEstado === 'resuelta';
+                        const mostrandoResolver = resolviendoId === alerta.areCodigo;
+
+                        return (
+                          <div
+                            key={alerta.areCodigo}
+                            className={`relative rounded-xl border-l-4 p-4 transition-colors ${
+                              esNueva
+                                ? isDark ? 'border-l-red-500 bg-red-900/15 border border-red-800/30' : 'border-l-red-500 bg-red-50/60 border border-red-200/60'
+                                : esLeida
+                                ? isDark ? 'border-l-amber-500 bg-amber-900/10 border border-amber-800/20' : 'border-l-amber-500 bg-amber-50/50 border border-amber-200/50'
+                                : isDark ? 'border-l-green-500 bg-green-900/10 border border-green-800/20' : 'border-l-green-500 bg-green-50/50 border border-green-200/50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-center gap-2">
+                                {esNueva && <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" /></span>}
+                                <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                  Racha de {fechas.length} registros con emociones de riesgo
+                                </p>
+                              </div>
+                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                esNueva
+                                  ? 'bg-red-500 text-white'
+                                  : esLeida
+                                  ? isDark ? 'bg-amber-700/60 text-amber-200' : 'bg-amber-200 text-amber-800'
+                                  : isDark ? 'bg-green-700/60 text-green-200' : 'bg-green-200 text-green-800'
+                              }`}>
+                                {esNueva ? 'Nueva' : esLeida ? 'Leída' : 'Resuelta'}
+                              </span>
+                            </div>
+
+                            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-3 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                              <div>
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Fechas:</span>{' '}
+                                {fechas.map(f => {
+                                  try { return new Date(f + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }); } catch { return f; }
+                                }).join(', ')}
+                              </div>
+                              {escalas.length > 0 && (
+                                <div>
+                                  <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Escalas promedio:</span>{' '}
+                                  {escalas.map(e => e.toFixed(1)).join(', ')}
+                                </div>
+                              )}
+                              <div>
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Regla:</span>{' '}
+                                {etiquetaRegla(alerta.areRegla)}
+                              </div>
+                              <div>
+                                <span className={isDark ? 'text-slate-500' : 'text-slate-400'}>Detectada:</span>{' '}
+                                {new Date(alerta.areFechaCreacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+
+                            {esResuelta && alerta.areNotasResolucion && (
+                              <div className={`rounded-lg p-3 mb-3 text-xs ${isDark ? 'bg-slate-700/50 text-slate-300' : 'bg-white/80 text-slate-600 border border-slate-200/50'}`}>
+                                <span className={`font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Notas:</span>{' '}
+                                {alerta.areNotasResolucion}
+                              </div>
+                            )}
+
+                            {mostrandoResolver && (
+                              <div className="mb-3 space-y-2">
+                                <textarea
+                                  value={notasResolucion}
+                                  onChange={e => setNotasResolucion(e.target.value)}
+                                  placeholder="Notas de resolución (opcional)…"
+                                  rows={2}
+                                  className={`w-full px-3 py-2 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-colors ${
+                                    isDark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-800 placeholder:text-slate-400'
+                                  } border`}
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarcarResuelta(alerta.areCodigo)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 transition-colors"
+                                  >
+                                    Confirmar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setResolviendoId(null); setNotasResolucion(''); }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'}`}
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {!esResuelta && !mostrandoResolver && (
+                              <div className="flex gap-2">
+                                {esNueva && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarcarLeida(alerta.areCodigo)}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      isDark ? 'text-slate-300 hover:bg-slate-700 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+                                    }`}
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    Marcar como leída
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => { setResolviendoId(alerta.areCodigo); setNotasResolucion(''); }}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                    isDark ? 'text-green-400 hover:bg-green-900/30' : 'text-green-700 hover:bg-green-50'
+                                  }`}
+                                >
+                                  <FileCheck2 className="w-3.5 h-3.5" />
+                                  Marcar como resuelta
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
         </div>

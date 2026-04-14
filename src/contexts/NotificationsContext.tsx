@@ -14,10 +14,12 @@ import { getSolicitudesPendientes, getStudentNameFromCita, getFichaFromCita } fr
 
 export interface AppNotification {
   id: string;
-  type: 'NEW_CHAT' | 'NEW_MESSAGE' | string;
+  type: 'NEW_CHAT' | 'NEW_MESSAGE' | 'RACHA_EMOCIONAL' | string;
   title: string;
   message: string;
   appointmentId?: number;
+  seguimientoId?: number;
+  deepLink?: string;
   createdAt: Date;
   read: boolean;
 }
@@ -55,7 +57,7 @@ function isTypeAllowed(type: string, prefs: NotificationPreferences): boolean {
     return prefs.citas;
   if (t === 'NEW_MESSAGE' || t === 'NEW_CHAT')
     return prefs.mensajes;
-  if (t === 'CASO_CRITICO')
+  if (t === 'CASO_CRITICO' || t === 'RACHA_EMOCIONAL')
     return prefs.casosCriticos;
   return true;
 }
@@ -148,7 +150,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       console.info('[HM-Notif] Socket conectado:', config.url, 'sid:', socket.id);
     });
 
-    socket.on('notification', (data: { type?: string; title?: string; message?: string; appointmentId?: number }) => {
+    socket.on('notification', (data: { type?: string; title?: string; message?: string; appointmentId?: number; seguimientoId?: number; deepLink?: string }) => {
       console.debug('[HM-Notif] Notificación recibida:', data);
       if (data.appointmentId != null) {
         seenCitaIdsRef.current.add(data.appointmentId);
@@ -158,6 +160,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         title: data.title ?? 'Notificación',
         message: data.message ?? '',
         appointmentId: data.appointmentId,
+        seguimientoId: data.seguimientoId,
+        deepLink: data.deepLink,
       });
     });
 
