@@ -20,6 +20,13 @@ import {
   Bell,
   Eye,
   FileCheck2,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  FileText,
+  BookX,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -67,6 +74,16 @@ import {
   type TestAsignadoApi,
   type PlantillaResumen,
 } from '../lib/tests';
+import {
+  getDiarioPorAprendiz,
+  getPaginasPorFecha,
+  tieneActividadReciente,
+  formatearHora,
+  formatearFechaLarga,
+  type DiarioResumen,
+  type PaginacionPorFechaResponse,
+} from '../lib/diario';
+import { categoriaDeEscala } from '../lib/emociones';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
@@ -104,7 +121,7 @@ interface StudentProfileProps {
   onSeguimientoDeleted?: () => void;
 }
 
-type Tab = 'info' | 'calendar' | 'charts' | 'test' | 'recommendations' | 'alerts';
+type Tab = 'info' | 'calendar' | 'charts' | 'diary' | 'test' | 'recommendations' | 'alerts';
 
 function FirmaDisplayPlaceholder({
   label,
@@ -409,15 +426,6 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
     try { setPlantillasDisponibles(await getMisPlantillas()); } catch { setPlantillasDisponibles([]); }
   };
 
-  const tabs = [
-    { id: 'info' as Tab, label: 'Información', icon: Info },
-    { id: 'calendar' as Tab, label: 'Calendario', icon: Calendar },
-    { id: 'charts' as Tab, label: 'Gráficos', icon: BarChart3 },
-    { id: 'test' as Tab, label: 'Test', icon: ClipboardList },
-    { id: 'recommendations' as Tab, label: 'Recomendaciones', icon: ListChecks },
-    { id: 'alerts' as Tab, label: 'Alertas', icon: Bell },
-  ];
-
   const cargarRecomendaciones = useCallback(async () => {
     if (student.id == null) return;
     setLoadingRecs(true);
@@ -480,6 +488,87 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
   };
 
   const alertasNuevas = alertas.filter(a => a.areEstado === 'nueva').length;
+
+  /* ── Diario emocional ── */
+  const [diarioResumen, setDiarioResumen] = useState<DiarioResumen | null>(null);
+  const [diarioLoading, setDiarioLoading] = useState(false);
+  const [diarioError, setDiarioError] = useState<string | null>(null);
+  const [paginacion, setPaginacion] = useState<PaginacionPorFechaResponse | null>(null);
+  const [paginasLoading, setPaginasLoading] = useState(false);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(null);
+  const [expandedPages, setExpandedPages] = useState<Set<number>>(new Set());
+  const [showDiaryCal, setShowDiaryCal] = useState(true);
+  const diaryNow = useMemo(() => new Date(), []);
+  const [diaryMes, setDiaryMes] = useState(diaryNow.getMonth() + 1);
+  const [diaryAnio, setDiaryAnio] = useState(diaryNow.getFullYear());
+  const fechasConEntradasCache = useRef<Set<string>>(new Set());
+
+  const cargarDiario = useCallback(async () => {
+    if (!student.aprendizId) return;
+    setDiarioLoading(true);
+    setDiarioError(null);
+    try {
+      const data = await getDiarioPorAprendiz(student.aprendizId);
+      setDiarioResumen(data);
+      if (data) {
+        setPaginasLoading(true);
+        try {
+          const pag = await getPaginasPorFecha(data.diaCodigo);
+          setPaginacion(pag);
+          pag.fechasConEntradas.forEach(f => fechasConEntradasCache.current.add(f));
+          if (pag.fechaCorrespondiente) setFechaSeleccionada(pag.fechaCorrespondiente);
+        } catch {
+          setPaginacion(null);
+        } finally {
+          setPaginasLoading(false);
+        }
+      }
+    } catch (e) {
+      setDiarioError(e instanceof Error ? e.message : 'Error al cargar el diario.');
+    } finally {
+      setDiarioLoading(false);
+    }
+  }, [student.aprendizId]);
+
+  useEffect(() => {
+    if (activeTab === 'diary') cargarDiario();
+  }, [activeTab, cargarDiario]);
+
+  const navegarFechaDiario = useCallback(async (fecha: string) => {
+    if (!diarioResumen) return;
+    setPaginasLoading(true);
+    setExpandedPages(new Set());
+    try {
+      const pag = await getPaginasPorFecha(diarioResumen.diaCodigo, fecha);
+      setPaginacion(pag);
+      pag.fechasConEntradas.forEach(f => fechasConEntradasCache.current.add(f));
+      setFechaSeleccionada(pag.fechaCorrespondiente);
+    } catch { /* keep previous */ }
+    finally { setPaginasLoading(false); }
+  }, [diarioResumen]);
+
+  const toggleExpandPage = useCallback((pagCodigo: number) => {
+    setExpandedPages(prev => {
+      const next = new Set(prev);
+      if (next.has(pagCodigo)) next.delete(pagCodigo); else next.add(pagCodigo);
+      return next;
+    });
+  }, []);
+
+  const diaryCellHasEntry = useCallback((day: number) => {
+    const key = `${diaryAnio}-${String(diaryMes).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return fechasConEntradasCache.current.has(key);
+  }, [diaryAnio, diaryMes]);
+
+  const tabs = [
+    { id: 'info' as Tab, label: 'Información', icon: Info },
+    { id: 'calendar' as Tab, label: 'Calendario', icon: Calendar },
+    { id: 'charts' as Tab, label: 'Gráficos', icon: BarChart3 },
+    { id: 'diary' as Tab, label: 'Diario', icon: BookOpen, dot: diarioResumen ? tieneActividadReciente(diarioResumen.fechaUltimaEntrada) : false },
+    { id: 'test' as Tab, label: 'Test', icon: ClipboardList },
+    { id: 'recommendations' as Tab, label: 'Recomendaciones', icon: ListChecks },
+    { id: 'alerts' as Tab, label: 'Alertas', icon: Bell },
+  ];
 
   /* ── Estadísticas emocionales (reales desde API) ── */
   const [emoMensual, setEmoMensual] = useState<EstadisticaMensualResponse | null>(null);
@@ -707,11 +796,12 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
             <div className={`flex border-b overflow-x-auto ${isDark ? 'border-slate-600' : 'border-purple-100/50'}`}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
+                const showDot = 'dot' in tab && tab.dot;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
+                    className={`relative flex items-center gap-2 px-6 py-4 border-b-2 transition-all whitespace-nowrap ${
                       activeTab === tab.id
                         ? isDark ? 'border-purple-500 text-white bg-purple-900/30' : 'border-purple-600 text-purple-700 bg-purple-50/50'
                         : isDark ? 'border-transparent text-slate-400 hover:text-white hover:bg-slate-700/50' : 'border-transparent text-slate-600 hover:text-purple-600 hover:bg-purple-50/30'
@@ -719,6 +809,9 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                   >
                     <Icon className="w-4 h-4" />
                     <span className="text-sm">{tab.label}</span>
+                    {showDot && (
+                      <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-blue-500 ring-2 ring-white dark:ring-slate-800" />
+                    )}
                   </button>
                 );
               })}
@@ -1524,6 +1617,282 @@ export function StudentProfile({ student, seguimiento, onBack, onSeguimientoUpda
                           )}
                         </div>
                       );})}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'diary' && (
+                <div>
+                  {!student.aprendizId ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <BookX className={`w-12 h-12 ${isDark ? 'text-slate-500' : 'text-slate-300'}`} />
+                      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        No se pudo determinar el ID del aprendiz.
+                      </p>
+                    </div>
+                  ) : diarioLoading ? (
+                    <div className="flex justify-center py-16">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                    </div>
+                  ) : diarioError ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <AlertTriangle className={`w-10 h-10 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                      <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{diarioError}</p>
+                      <button
+                        onClick={cargarDiario}
+                        className="mt-2 px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : !diarioResumen ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <BookX className={`w-12 h-12 ${isDark ? 'text-slate-500' : 'text-slate-300'}`} />
+                      <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                        Este aprendiz aún no ha creado su diario emocional.
+                      </p>
+                      <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        El diario se creará automáticamente cuando el aprendiz registre su primera entrada desde la app.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Header del diario */}
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-purple-50/60 border-purple-100'}`}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={`p-2 rounded-lg ${isDark ? 'bg-purple-900/40' : 'bg-purple-100'}`}>
+                            <BookOpen className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+                          </div>
+                          <div>
+                            <h3 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                              {diarioResumen.diaTitulo || 'Diario Emocional'}
+                            </h3>
+                            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Creado el {new Date(diarioResumen.diaFechaCreacion).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              {' · '}{diarioResumen.totalPaginas} {diarioResumen.totalPaginas === 1 ? 'entrada' : 'entradas'} totales
+                              {paginacion && ` · ${paginacion.totalDiasConEntradas} días con registro`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!paginacion && !paginasLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                          <FileText className={`w-10 h-10 ${isDark ? 'text-slate-500' : 'text-slate-300'}`} />
+                          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            El diario existe pero aún no tiene páginas registradas.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {/* Calendario mini */}
+                          <div className={`lg:col-span-1 ${showDiaryCal ? '' : 'hidden lg:block'}`}>
+                            <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-700/40 border-slate-600' : 'bg-white border-slate-200'}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <button
+                                  onClick={() => { const prev = diaryMes === 1 ? 12 : diaryMes - 1; setDiaryMes(prev); if (prev === 12) setDiaryAnio(a => a - 1); }}
+                                  className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-slate-700'}`}>
+                                  {['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'][diaryMes]} {diaryAnio}
+                                </span>
+                                <button
+                                  onClick={() => { const next = diaryMes === 12 ? 1 : diaryMes + 1; setDiaryMes(next); if (next === 1) setDiaryAnio(a => a + 1); }}
+                                  className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-100 text-slate-500'}`}
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-7 gap-1">
+                                {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((d, i) => (
+                                  <div key={i} className={`text-center text-[10px] py-1 font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{d}</div>
+                                ))}
+                                {(() => {
+                                  const totalDays = new Date(diaryAnio, diaryMes, 0).getDate();
+                                  const firstDow = new Date(diaryAnio, diaryMes - 1, 1).getDay();
+                                  const blanks = Array.from({ length: firstDow }, (_, i) => (
+                                    <div key={`b${i}`} className="aspect-square" />
+                                  ));
+                                  const days = Array.from({ length: totalDays }, (_, i) => {
+                                    const day = i + 1;
+                                    const hasEntry = diaryCellHasEntry(day);
+                                    const dateStr = `${diaryAnio}-${String(diaryMes).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    const isSelected = fechaSeleccionada === dateStr;
+                                    return (
+                                      <button
+                                        key={day}
+                                        type="button"
+                                        disabled={!hasEntry}
+                                        onClick={() => hasEntry && navegarFechaDiario(dateStr)}
+                                        className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs transition-all relative
+                                          ${isSelected
+                                            ? 'ring-2 ring-purple-500 bg-purple-600 text-white font-bold'
+                                            : hasEntry
+                                              ? isDark ? 'bg-slate-600 text-white hover:bg-purple-700/60 cursor-pointer' : 'bg-purple-50 text-purple-700 hover:bg-purple-100 cursor-pointer'
+                                              : isDark ? 'text-slate-500' : 'text-slate-400'
+                                          }`}
+                                      >
+                                        <span>{day}</span>
+                                        {hasEntry && !isSelected && (
+                                          <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-purple-500" />
+                                        )}
+                                      </button>
+                                    );
+                                  });
+                                  return [...blanks, ...days];
+                                })()}
+                              </div>
+                              {/* Leyenda */}
+                              <div className="mt-3 flex items-center gap-3 text-[10px]">
+                                <div className="flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                                  <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Con entradas</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="h-3 w-3 rounded bg-purple-600" />
+                                  <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Seleccionado</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Páginas del día */}
+                          <div className="lg:col-span-2">
+                            {/* Toggle calendario en mobile */}
+                            <button
+                              onClick={() => setShowDiaryCal(v => !v)}
+                              className={`lg:hidden mb-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                                isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                              }`}
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              {showDiaryCal ? 'Ocultar calendario' : 'Mostrar calendario'}
+                            </button>
+
+                            {paginasLoading ? (
+                              <div className="flex justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                              </div>
+                            ) : paginacion && paginacion.datos.length > 0 ? (
+                              <div className="space-y-3">
+                                {/* Navegación de día */}
+                                <div className="flex items-center justify-between">
+                                  <button
+                                    disabled={!paginacion.fechaMasAntiguaConEntradas}
+                                    onClick={() => paginacion.fechaMasAntiguaConEntradas && navegarFechaDiario(paginacion.fechaMasAntiguaConEntradas)}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                      isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    <ChevronsLeft className="w-3.5 h-3.5" />
+                                    Anterior
+                                  </button>
+                                  <div className="text-center">
+                                    <p className={`text-sm font-medium capitalize ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                      {formatearFechaLarga(paginacion.fechaCorrespondiente)}
+                                    </p>
+                                    <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                      Día {paginacion.indiceDia + 1} de {paginacion.totalDiasConEntradas} · {paginacion.totalRegistrosEnFecha} {paginacion.totalRegistrosEnFecha === 1 ? 'entrada' : 'entradas'}
+                                    </p>
+                                  </div>
+                                  <button
+                                    disabled={!paginacion.fechaMasNuevaConEntradas}
+                                    onClick={() => paginacion.fechaMasNuevaConEntradas && navegarFechaDiario(paginacion.fechaMasNuevaConEntradas)}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                                      isDark ? 'text-slate-300 hover:bg-slate-700' : 'text-slate-600 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    Siguiente
+                                    <ChevronsRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                {/* Cards de páginas */}
+                                {paginacion.datos.map((pag) => {
+                                  const isExpanded = expandedPages.has(pag.pagCodigo);
+                                  const contenido = pag.pagContenido || '';
+                                  const necesitaTruncar = contenido.length > 180;
+                                  const emocion = pag.emociones;
+                                  const cat = emocion ? categoriaDeEscala(emocion.emoEscala) : null;
+
+                                  return (
+                                    <div
+                                      key={pag.pagCodigo}
+                                      className={`p-4 rounded-xl border transition-all duration-200 ${
+                                        isDark ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700/70' : 'bg-white border-slate-200 hover:shadow-md'
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-3 mb-2">
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className={`text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                                            {pag.pagTitulo || 'Sin título'}
+                                          </h4>
+                                          <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                            {formatearHora(pag.pagFechaRealizacion)}
+                                          </p>
+                                        </div>
+                                        {emocion && (
+                                          <div
+                                            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-xs font-medium"
+                                            style={{ backgroundColor: emocion.emoColorFondo || (cat === 'Positiva' ? '#22c55e' : cat === 'Neutral' ? '#eab308' : cat === 'Negativa' ? '#f97316' : cat === 'Critica' ? '#ef4444' : '#94a3b8') }}
+                                          >
+                                            {emocion.emoEmoji && <span className="text-sm">{emocion.emoEmoji}</span>}
+                                            <span>{emocion.emoNombre}</span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {contenido && (
+                                        <div className={`text-sm leading-relaxed whitespace-pre-line ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                          {necesitaTruncar && !isExpanded ? (
+                                            <>
+                                              {contenido.slice(0, 180)}...
+                                              <button
+                                                onClick={() => toggleExpandPage(pag.pagCodigo)}
+                                                className="ml-1 text-purple-500 hover:text-purple-400 text-xs font-medium"
+                                              >
+                                                Ver más
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <>
+                                              {contenido}
+                                              {necesitaTruncar && (
+                                                <button
+                                                  onClick={() => toggleExpandPage(pag.pagCodigo)}
+                                                  className="ml-1 text-purple-500 hover:text-purple-400 text-xs font-medium"
+                                                >
+                                                  Ver menos
+                                                </button>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {!emocion && !contenido && (
+                                        <p className={`text-xs italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                          Entrada sin contenido ni emoción registrada.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                <FileText className={`w-10 h-10 ${isDark ? 'text-slate-500' : 'text-slate-300'}`} />
+                                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                  No hay entradas para esta fecha.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
