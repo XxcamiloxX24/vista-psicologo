@@ -2574,6 +2574,14 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Menú ⋮ en cabecera de chat: quitar focus:bg-accent del ítem shadcn cuando no está resaltado (coherencia claro/oscuro) */
+.chat-header-options-menu [data-slot="dropdown-menu-item"]:not([data-highlighted]):focus {
+  background-color: transparent !important;
+}
+.chat-header-options-menu [data-slot="dropdown-menu-item"][data-highlighted] {
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
 /* Login: siempre texto oscuro legible (no heredar tema oscuro del resto de la app) */
 .login-form input[type="email"],
 .login-form input[type="password"],

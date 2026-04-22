@@ -140,6 +140,24 @@ export function etiquetaEstadoCita(raw: string | null | undefined): string {
   return ETIQUETA_ESTADO_CITA[k] ?? raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1).toLowerCase();
 }
 
+const ETIQUETA_TIPO_CITA: Record<string, string> = {
+  chat: 'Chat',
+  videollamada: 'Videollamada',
+  presencial: 'Presencial',
+};
+
+/** Etiqueta legible para citTipoCita (chat / videollamada / presencial). */
+export function etiquetaTipoCita(raw: string | null | undefined): string {
+  if (!raw?.trim()) return '—';
+  const k = raw.trim().toLowerCase();
+  return ETIQUETA_TIPO_CITA[k] ?? raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1).toLowerCase();
+}
+
+/** Lee citTipoCita/CitTipoCita de una cita y devuelve la etiqueta legible. */
+export function etiquetaTipoCitaFromApi(c: CitaApi): string {
+  return etiquetaTipoCita(getCitaFieldFromApi<string>(c, 'citTipoCita', 'CitTipoCita'));
+}
+
 export function getPsychologistNameFromCita(c: CitaApi): string {
   const p = c.psicologo ?? (c as unknown as Record<string, unknown>).Psicologo;
   if (!p || typeof p !== 'object') return '';

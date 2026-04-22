@@ -22,6 +22,7 @@ export interface Conversation {
   apprenticeName?: string;
   ficha?: string;
   isActive: boolean;
+  archivedByPsychologist?: boolean;
   createdAt: string;
 }
 
@@ -83,6 +84,32 @@ export async function getMensajesPorMes(meses = 6): Promise<MensajesPorMesFila[]
   if (!response.ok) return [];
   const data = await response.json();
   return Array.isArray(data) ? data : [];
+}
+
+/** Oculta la conversación de la lista del psicólogo sin borrarla (el aprendiz la sigue viendo). */
+export async function archiveConversation(appointmentId: number): Promise<void> {
+  const response = await authFetch(
+    `${CHAT_API_URL}/api/chat/conversations/${appointmentId}/archive`,
+    { method: 'PATCH' }
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? 'No se pudo archivar la conversación');
+  }
+}
+
+/** Borra la conversación y todo su historial de mensajes. Acción irreversible. */
+export async function deleteConversationPermanent(appointmentId: number): Promise<void> {
+  const response = await authFetch(
+    `${CHAT_API_URL}/api/chat/conversations/${appointmentId}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? 'No se pudo eliminar la conversación');
+  }
 }
 
 export async function getChatHistory(appointmentId: number): Promise<ChatMessage[]> {

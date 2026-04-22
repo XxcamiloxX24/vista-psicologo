@@ -15,6 +15,8 @@ import {
   getConversations,
   getChatHistory,
   getSocketConfig,
+  archiveConversation,
+  deleteConversationPermanent,
   type Conversation,
   type ChatMessage,
 } from '../lib/chat';
@@ -178,7 +180,11 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
       setLoadingApprentices(true);
       getCitasParaNuevoChat()
         .then((list) => {
-          setAvailableCitas(list);
+          const soloNoPresenciales = list.filter((c) => {
+            const tipo = (getCitaFieldFromApi<string>(c, 'citTipoCita', 'CitTipoCita') ?? '').trim().toLowerCase();
+            return tipo === 'chat' || tipo === 'videollamada';
+          });
+          setAvailableCitas(soloNoPresenciales);
         })
         .catch(() => setAvailableCitas([]))
         .finally(() => setLoadingApprentices(false));
@@ -430,20 +436,36 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
     saveMutedChats(next);
   };
 
-  const handleRemoveChat = (permanent = false) => {
+  const handleRemoveChat = async (permanent = false) => {
     if (!selectedChat || !currentChat) return;
+    const appointmentId = selectedChat;
     const msg = permanent
       ? `¿Eliminar permanentemente la conversación con ${currentChat.name}? Se borrará el historial de mensajes.`
       : `¿Quitar el chat con ${currentChat.name} de la lista?`;
     if (!window.confirm(msg)) return;
-    setChats((prev) => prev.filter((c) => c.appointmentId !== selectedChat));
-    setChatMessages((prev) => {
-      const next = { ...prev };
-      delete next[selectedChat];
+
+    try {
+      if (permanent) {
+        await deleteConversationPermanent(appointmentId);
+      } else {
+        await archiveConversation(appointmentId);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo completar la acción';
+      window.alert(message);
+      return;
+    }
+
+    setChats((prev) => {
+      const next = prev.filter((c) => c.appointmentId !== appointmentId);
+      setSelectedChat(next.length > 0 ? next[0].appointmentId : null);
       return next;
     });
-    const remaining = chats.filter((c) => c.appointmentId !== selectedChat);
-    setSelectedChat(remaining.length > 0 ? remaining[0].appointmentId : null);
+    setChatMessages((prev) => {
+      const next = { ...prev };
+      delete next[appointmentId];
+      return next;
+    });
   };
   const filteredChats = chats.filter(
     (chat) =>
@@ -543,6 +565,8 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
                         const cod = getCitaFieldFromApi<number>(c, 'citCodigo', 'CitCodigo') ?? 0;
                         const name = getStudentNameFromCita(c);
                         const ficha = getFichaFromCita(c);
+                        const tipo = (getCitaFieldFromApi<string>(c, 'citTipoCita', 'CitTipoCita') ?? '').trim().toLowerCase();
+                        const tipoEtiqueta = tipo === 'videollamada' ? 'Videollamada' : tipo === 'chat' ? 'Chat' : '';
                         return (
                           <SelectItem
                             key={cod}
@@ -550,7 +574,7 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
                             hideIndicator
                             className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}
                           >
-                            {name} - Ficha: {ficha}
+                            {name} - Ficha: {ficha}{tipoEtiqueta ? ` · ${tipoEtiqueta}` : ''}
                           </SelectItem>
                         );
                       })}
@@ -561,7 +585,7 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
                   )}
                   {!loadingApprentices && availableCitas.length === 0 && (
                     <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      No hay citas disponibles (se excluyen realizadas y completadas).
+                      No hay citas disponibles. Sólo se listan citas por chat o videollamada que aún no hayan sido realizadas.
                     </p>
                   )}
                 </div>
@@ -697,35 +721,54 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
                       <DropdownMenuContent
                         align="end"
                         sideOffset={6}
-                        className={isDark ? 'bg-slate-800 border-slate-600' : ''}
-                        style={{ zIndex: 9999 }}
+                        className={`chat-header-options-menu min-w-[15rem] p-1.5 rounded-2xl border shadow-xl flex flex-col gap-0.5 ${
+                          isDark
+                            ? 'border-slate-600 bg-slate-800 text-slate-100'
+                            : 'border-slate-200 bg-white text-slate-800 shadow-slate-200/50'
+                        }`}
+                        style={{ zIndex: 2147483648 }}
                       >
-                        <DropdownMenuItem onClick={handleToggleMute}>
+                        <DropdownMenuItem
+                          onClick={handleToggleMute}
+                          className={`cursor-pointer !rounded-xl px-4 py-3 gap-3 text-sm font-medium border-0 outline-none transition-colors duration-150
+                            focus:!bg-transparent focus:!text-inherit
+                            ${isDark
+                              ? '!text-slate-100 [&_svg]:!text-slate-400 data-[highlighted]:!bg-slate-600 data-[highlighted]:!text-white data-[highlighted]:[&_svg]:!text-slate-200'
+                              : '!text-slate-700 [&_svg]:!text-slate-500 data-[highlighted]:!bg-violet-100 data-[highlighted]:!text-slate-900 data-[highlighted]:[&_svg]:!text-violet-700'}`}
+                        >
                           {isMuted ? (
                             <>
-                              <Bell className="w-4 h-4" />
+                              <Bell className="w-4 h-4 shrink-0" />
                               Activar notificaciones
                             </>
                           ) : (
                             <>
-                              <BellOff className="w-4 h-4" />
+                              <BellOff className="w-4 h-4 shrink-0" />
                               Silenciar notificaciones
                             </>
                           )}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        <DropdownMenuSeparator className={isDark ? '!bg-slate-600 my-1' : '!bg-slate-200 my-1'} />
                         <DropdownMenuItem
                           onClick={() => handleRemoveChat(false)}
-                          variant="destructive"
+                          className={`cursor-pointer !rounded-xl px-4 py-3 gap-3 text-sm font-medium border-0 outline-none transition-colors duration-150
+                            focus:!bg-transparent focus:!text-inherit
+                            ${isDark
+                              ? '!text-red-300 [&_svg]:!text-red-400 data-[highlighted]:!bg-red-950/80 data-[highlighted]:!text-red-50 data-[highlighted]:[&_svg]:!text-red-200'
+                              : '!text-red-600 [&_svg]:!text-red-600 data-[highlighted]:!bg-red-50 data-[highlighted]:!text-red-900 data-[highlighted]:[&_svg]:!text-red-800'}`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 shrink-0" />
                           Eliminar el chat
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleRemoveChat(true)}
-                          variant="destructive"
+                          className={`cursor-pointer !rounded-xl px-4 py-3 gap-3 text-sm font-medium border-0 outline-none transition-colors duration-150
+                            focus:!bg-transparent focus:!text-inherit
+                            ${isDark
+                              ? '!text-red-300 [&_svg]:!text-red-400 data-[highlighted]:!bg-red-950/80 data-[highlighted]:!text-red-50 data-[highlighted]:[&_svg]:!text-red-200'
+                              : '!text-red-600 [&_svg]:!text-red-600 data-[highlighted]:!bg-red-50 data-[highlighted]:!text-red-900 data-[highlighted]:[&_svg]:!text-red-800'}`}
                         >
-                          <MessageSquareOff className="w-4 h-4" />
+                          <MessageSquareOff className="w-4 h-4 shrink-0" />
                           Eliminar la conversación
                         </DropdownMenuItem>
                       </DropdownMenuContent>

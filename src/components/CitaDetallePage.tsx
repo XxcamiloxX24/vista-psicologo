@@ -12,22 +12,27 @@ import {
   getStudentEmailFromCita,
   getFichaFromCita,
   getPsychologistNameFromCita,
+  etiquetaTipoCitaFromApi,
 } from '../lib/citas';
 
 const STATUS_UI_TO_API: Record<string, string> = {
   pending: 'pendiente',
+  scheduled: 'programada',
   completed: 'completada',
   rescheduled: 'reprogramada',
   cancelled: 'cancelada',
+  no_show: 'no asistió',
 };
 
 const STATUS_API_TO_UI: Record<string, string> = {
   pendiente: 'pending',
+  programada: 'scheduled',
+  reprogramada: 'rescheduled',
   realizada: 'completed',
   completada: 'completed',
-  reprogramada: 'rescheduled',
   cancelada: 'cancelled',
-  programada: 'pending',
+  'no asistió': 'no_show',
+  'no asistio': 'no_show',
 };
 
 export interface CitaDetalleConfig {
@@ -204,18 +209,37 @@ export function CitaDetallePage({ config, onBack }: CitaDetallePageProps) {
               <p className={isDark ? 'text-white' : 'text-slate-800'}>{getCitaFieldFromApi<string>(cita, 'citMotivo', 'CitMotivo') || '—'}</p>
             </div>
             <div className={`rounded-xl p-4 ${isDark ? 'bg-slate-800/50 border border-slate-600' : 'bg-slate-50 border border-slate-200'}`}>
+              <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tipo de cita</p>
+              <p className={isDark ? 'text-white' : 'text-slate-800'}>{etiquetaTipoCitaFromApi(cita)}</p>
+            </div>
+            <div className={`rounded-xl p-4 ${isDark ? 'bg-slate-800/50 border border-slate-600' : 'bg-slate-50 border border-slate-200'}`}>
               <Label className={`block text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Estado</Label>
               <Select value={editedStatus} onValueChange={setEditedStatus}>
                 <SelectTrigger
-                  className={`mt-1 h-10 ${isDark ? 'border-slate-600 bg-slate-700 text-white' : 'border-slate-200 bg-white'}`}
+                  className={`w-full mt-1 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                    isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-slate-50 text-slate-900'
+                  }`}
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className={isDark ? 'bg-slate-700 border-slate-500' : ''}>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="completed">Completada</SelectItem>
-                  <SelectItem value="rescheduled">Reprogramada</SelectItem>
-                  <SelectItem value="cancelled">Cancelada</SelectItem>
+                <SelectContent
+                  container={document.body}
+                  className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                    isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                  }`}
+                  style={{
+                    ...(isDark ? { backgroundColor: '#334155' } : { backgroundColor: '#fff' }),
+                    width: 'var(--radix-select-trigger-width)',
+                    minWidth: 'var(--radix-select-trigger-width)',
+                    zIndex: 2147483648,
+                  }}
+                >
+                  <SelectItem value="pending" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Pendiente</SelectItem>
+                  <SelectItem value="scheduled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Programada</SelectItem>
+                  <SelectItem value="rescheduled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Reprogramada</SelectItem>
+                  <SelectItem value="completed" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Completada</SelectItem>
+                  <SelectItem value="cancelled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Cancelada</SelectItem>
+                  <SelectItem value="no_show" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>No asistió</SelectItem>
                 </SelectContent>
               </Select>
             </div>

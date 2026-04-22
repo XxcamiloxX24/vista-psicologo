@@ -13,7 +13,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { getCitasAgenda, getSolicitudesPendientes, type CitaApi } from '../lib/citas';
+import { getCitasAgenda, getSolicitudesPendientes, etiquetaTipoCita, type CitaApi } from '../lib/citas';
 
 interface AppointmentsProps {
   onViewCitaDetalle?: (cita: CitaApi) => void;
@@ -31,9 +31,21 @@ const ESTADO_COLORS: Record<string, { bg: string; border: string }> = {
   completada: { bg: '#22c55e', border: '#16a34a' },
   cancelada: { bg: '#64748b', border: '#475569' },
   'no asistió': { bg: '#ef4444', border: '#dc2626' },
+  'no asistio': { bg: '#ef4444', border: '#dc2626' },
 };
 
-type AppointmentStatus = 'completed' | 'rescheduled' | 'cancelled' | 'pending';
+/** Estados que se muestran como eventos en el calendario (se excluye pendiente/solicitudes). */
+const ALLOWED_CALENDAR_STATES = new Set<string>([
+  'programada',
+  'reprogramada',
+  'realizada',
+  'completada',
+  'cancelada',
+  'no asistió',
+  'no asistio',
+]);
+
+type AppointmentStatus = 'completed' | 'rescheduled' | 'cancelled' | 'pending' | 'scheduled' | 'no_show';
 
 /** Cita unificada para el modal de detalle */
 interface AppointmentDetail {
@@ -48,6 +60,7 @@ interface AppointmentDetail {
   notes?: string;
   studentEmail?: string;
   reason?: string;
+  tipoCitaLabel: string;
 }
 
 const STATUS_MAP: Record<string, AppointmentStatus> = {
@@ -56,7 +69,18 @@ const STATUS_MAP: Record<string, AppointmentStatus> = {
   reprogramada: 'rescheduled',
   cancelada: 'cancelled',
   pendiente: 'pending',
-  programada: 'pending',
+  programada: 'scheduled',
+  'no asistió': 'no_show',
+  'no asistio': 'no_show',
+};
+
+const STATUS_UI_TO_API_SAVE: Record<AppointmentStatus, string> = {
+  pending: 'pendiente',
+  scheduled: 'programada',
+  rescheduled: 'reprogramada',
+  completed: 'completada',
+  cancelled: 'cancelada',
+  no_show: 'no asistió',
 };
 
 function parseStatus(estado: string | null | undefined): AppointmentStatus {
@@ -172,6 +196,7 @@ function citaToDetail(c: CitaApi): AppointmentDetail {
     notes: getCitaField<string>(r, 'citAnotaciones', 'CitAnotaciones') ?? undefined,
     studentEmail: getStudentEmail(c) || undefined,
     reason: getCitaField<string>(r, 'citMotivo', 'CitMotivo') ?? undefined,
+    tipoCitaLabel: etiquetaTipoCita(getCitaField<string>(r, 'citTipoCita', 'CitTipoCita')),
   };
 }
 
@@ -252,7 +277,7 @@ export function Appointments({
     return citas
       .filter((c) => {
         const est = (getCitaField<string>(c as unknown as Record<string, unknown>, 'citEstadoCita', 'CitEstadoCita') ?? '').trim().toLowerCase();
-        return est !== 'pendiente';
+        return ALLOWED_CALENDAR_STATES.has(est);
       })
       .map(citaToEvent);
   }, [citas]);
@@ -277,7 +302,7 @@ export function Appointments({
         prev.map((c) => {
           const cod = getCitaField<number>(c as unknown as Record<string, unknown>, 'citCodigo', 'CitCodigo') ?? 0;
           return cod === selectedAppointment.id
-            ? { ...c, citAnotaciones: editedNotes, citEstadoCita: editedStatus === 'completed' ? 'completada' : editedStatus === 'cancelled' ? 'cancelada' : editedStatus === 'rescheduled' ? 'reprogramada' : 'pendiente' }
+            ? { ...c, citAnotaciones: editedNotes, citEstadoCita: STATUS_UI_TO_API_SAVE[editedStatus] }
             : c;
         })
       );
@@ -518,16 +543,37 @@ export function Appointments({
                     <p className={isDark ? 'text-white' : 'text-slate-800'}>{selectedAppointment.reason || '—'}</p>
                   </div>
                   <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50'}`}>
+                    <p className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tipo de cita</p>
+                    <p className={isDark ? 'text-white' : 'text-slate-800'}>{selectedAppointment.tipoCitaLabel}</p>
+                  </div>
+                  <div className={`rounded-lg p-4 ${isDark ? 'bg-slate-800 border border-slate-600' : 'bg-slate-50'}`}>
                     <Label className={isDark ? 'text-slate-400' : ''}>Estado</Label>
                     <Select value={editedStatus} onValueChange={(v) => setEditedStatus(v as AppointmentStatus)}>
-                      <SelectTrigger className={`mt-2 h-10 ${isDark ? 'border-slate-600 bg-slate-700 text-white' : ''}`}>
+                      <SelectTrigger
+                        className={`w-full mt-2 px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                          isDark ? 'border-slate-600 bg-slate-700 text-slate-200' : 'border-purple-200/50 bg-white text-slate-900'
+                        }`}
+                      >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className={isDark ? 'bg-slate-700 border-slate-500' : ''}>
-                        <SelectItem value="pending">Pendiente</SelectItem>
-                        <SelectItem value="completed">Completada</SelectItem>
-                        <SelectItem value="rescheduled">Reprogramada</SelectItem>
-                        <SelectItem value="cancelled">Cancelada</SelectItem>
+                      <SelectContent
+                        container={document.body}
+                        className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                          isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                        }`}
+                        style={{
+                          ...(isDark ? { backgroundColor: '#334155' } : { backgroundColor: '#fff' }),
+                          width: 'var(--radix-select-trigger-width)',
+                          minWidth: 'var(--radix-select-trigger-width)',
+                          zIndex: 2147483648,
+                        }}
+                      >
+                        <SelectItem value="pending" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Pendiente</SelectItem>
+                        <SelectItem value="scheduled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Programada</SelectItem>
+                        <SelectItem value="rescheduled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Reprogramada</SelectItem>
+                        <SelectItem value="completed" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Completada</SelectItem>
+                        <SelectItem value="cancelled" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>Cancelada</SelectItem>
+                        <SelectItem value="no_show" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100'}>No asistió</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
