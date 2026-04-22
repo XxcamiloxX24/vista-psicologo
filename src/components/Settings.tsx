@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2, PenLine, Upload } from 'lucide-react';
+import { ChevronDown, User, Lock, Shield, Bell, Palette, Globe, Pencil, Check, X, Eye, EyeOff, Loader2, PenLine, Upload, AlertTriangle, Send } from 'lucide-react';
 import { usePsychologist } from '../contexts/PsychologistContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { changePassword } from '../lib/auth';
 import { listImages, uploadSignatureImage, deleteImage, type ImageItem } from '../lib/images';
+import { crearReporte, type ReportePrioridad } from '../lib/reportes';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 function FirmaThumbnail({
@@ -376,6 +377,19 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
   const firmaIsDrawingRef = useRef(false);
   const firmaLastPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  const [reporteTitulo, setReporteTitulo] = useState('');
+  const [reporteDescripcion, setReporteDescripcion] = useState('');
+  const [reporteCategoria, setReporteCategoria] = useState('error_plataforma');
+  const [reportePrioridad, setReportePrioridad] = useState<ReportePrioridad>('media');
+  const [reporteLoading, setReporteLoading] = useState(false);
+  const [reporteToast, setReporteToast] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!reporteToast) return;
+    const t = setTimeout(() => setReporteToast(null), 4500);
+    return () => clearTimeout(t);
+  }, [reporteToast]);
+
   const refreshSavedFirmas = useCallback(() => {
     setSavedFirmasLoading(true);
     listImages('firma', 20)
@@ -447,6 +461,12 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
       title: 'Firma Profesional',
       icon: PenLine,
       color: 'from-teal-500 to-teal-600'
+    },
+    {
+      id: 'report',
+      title: 'Reportar un problema',
+      icon: AlertTriangle,
+      color: 'from-rose-500 to-red-600'
     }
   ];
 
@@ -529,10 +549,88 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
       document.body
     );
 
+  const reporteToastBg =
+    reporteToast?.type === 'success'
+      ? '#10b981'
+      : reporteToast?.type === 'warning'
+        ? '#ea580c'
+        : reporteToast?.type === 'error'
+          ? '#ef4444'
+          : 'transparent';
+  const reporteToastEl =
+    reporteToast &&
+    createPortal(
+      <div
+        role={reporteToast.type === 'error' ? 'alert' : 'status'}
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          left: toastLeft,
+          zIndex: 2147483647,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 16px',
+          borderRadius: 12,
+          backgroundColor: reporteToastBg,
+          color: 'white',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)',
+        }}
+      >
+        {reporteToast.type === 'success' && <Check style={{ width: 20, height: 20, flexShrink: 0 }} />}
+        <span style={{ fontWeight: 500 }}>{reporteToast.message}</span>
+        <button
+          type="button"
+          onClick={() => setReporteToast(null)}
+          style={{ marginLeft: 8, padding: 4, borderRadius: 4, background: 'rgba(255,255,255,0.2)' }}
+          aria-label="Cerrar"
+        >
+          <X style={{ width: 16, height: 16 }} />
+        </button>
+      </div>,
+      document.body
+    );
+
+  const enviarReporte = async () => {
+    setReporteToast(null);
+    const titulo = reporteTitulo.trim();
+    const descripcion = reporteDescripcion.trim();
+    if (!titulo) {
+      setReporteToast({ type: 'warning', message: 'Escribe un título breve del problema.' });
+      return;
+    }
+    if (descripcion.length < 10) {
+      setReporteToast({ type: 'warning', message: 'Describe el problema con al menos 10 caracteres.' });
+      return;
+    }
+    setReporteLoading(true);
+    try {
+      await crearReporte({
+        titulo,
+        descripcion,
+        categoria: reporteCategoria,
+        prioridad: reportePrioridad,
+      });
+      setReporteToast({ type: 'success', message: 'Reporte enviado al administrador. Te avisaremos cuando se gestione.' });
+      setReporteTitulo('');
+      setReporteDescripcion('');
+      setReporteCategoria('error_plataforma');
+      setReportePrioridad('media');
+    } catch (err) {
+      setReporteToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'No se pudo enviar el reporte.',
+      });
+    } finally {
+      setReporteLoading(false);
+    }
+  };
+
   return (
     <div ref={settingsContainerRef} className="relative space-y-6">
       {savedToast}
       {securityToastEl}
+      {reporteToastEl}
       {/* Header */}
       <div>
         <h1 className={`text-4xl mb-2 ${isDark ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'}`}>
@@ -839,6 +937,111 @@ export function Settings({ onEditProfile, showSavedToast, onDismissSavedToast }:
                       firmaLastPosRef={firmaLastPosRef}
                       setFirmaToast={(msg) => setSecurityToast({ type: 'success', message: msg })}
                     />
+                  )}
+
+                  {section.id === 'report' && (
+                    <div className="space-y-4">
+                      <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                        Si encuentras un error, una inconsistencia de datos o quieres sugerir una mejora, envíalo aquí. El reporte llegará al administrador, que te dará seguimiento desde el panel.
+                      </p>
+
+                      <div>
+                        <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Título</label>
+                        <input
+                          type="text"
+                          value={reporteTitulo}
+                          onChange={(e) => { setReporteTitulo(e.target.value); setReporteToast(null); }}
+                          placeholder="Resumen breve del problema"
+                          maxLength={120}
+                          className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${
+                            isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                          }`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Categoría</label>
+                        <Select value={reporteCategoria} onValueChange={(v) => { setReporteCategoria(v); setReporteToast(null); }}>
+                          <SelectTrigger
+                            className={`h-11 rounded-xl ${
+                              isDark ? 'border-slate-600 bg-slate-800 text-white' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <SelectValue placeholder="Selecciona una categoría" />
+                          </SelectTrigger>
+                          <SelectContent
+                            container={settingsContainerRef.current}
+                            className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                              isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                            }`}
+                            style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' }}
+                          >
+                            <SelectItem value="error_plataforma" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Error de la plataforma</SelectItem>
+                            <SelectItem value="datos_incorrectos" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Datos incorrectos</SelectItem>
+                            <SelectItem value="sugerencia" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Sugerencia o mejora</SelectItem>
+                            <SelectItem value="otro" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Prioridad</label>
+                        <Select value={reportePrioridad} onValueChange={(v) => { setReportePrioridad(v as ReportePrioridad); setReporteToast(null); }}>
+                          <SelectTrigger
+                            className={`h-11 rounded-xl ${
+                              isDark ? 'border-slate-600 bg-slate-800 text-white' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <SelectValue placeholder="Prioridad" />
+                          </SelectTrigger>
+                          <SelectContent
+                            container={settingsContainerRef.current}
+                            className={`!w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+                              isDark ? '!bg-slate-700 border-slate-500 text-white settings-select-dark' : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+                            }`}
+                            style={isDark ? { backgroundColor: '#334155', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' } : { backgroundColor: '#fff', width: 'var(--radix-select-trigger-width)', minWidth: 'var(--radix-select-trigger-width)' }}
+                          >
+                            <SelectItem value="baja" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Baja</SelectItem>
+                            <SelectItem value="media" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Media</SelectItem>
+                            <SelectItem value="alta" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Alta</SelectItem>
+                            <SelectItem value="critica" hideIndicator className={isDark ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500 transition-colors duration-150' : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100 transition-colors duration-150'}>Crítica</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className={`text-sm mb-2 block ${isDark ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>Descripción</label>
+                        <textarea
+                          value={reporteDescripcion}
+                          onChange={(e) => { setReporteDescripcion(e.target.value); setReporteToast(null); }}
+                          placeholder="Cuéntanos qué pasó, cómo reproducirlo y cualquier detalle útil."
+                          maxLength={2000}
+                          rows={5}
+                          className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-y ${
+                            isDark ? 'border-slate-600 bg-slate-800 text-white placeholder:text-slate-400' : 'border-purple-200/50 bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
+                          }`}
+                        />
+                        <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400 dark:text-slate-500'}`}>
+                          {reporteDescripcion.length}/2000 caracteres
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50'}`}>
+                        <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                          El reporte quedará como <strong>Creado</strong> hasta que un administrador lo tome en proceso. Puedes ver novedades en tus notificaciones si se registran.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={enviarReporte}
+                        disabled={reporteLoading}
+                        className="flex w-full items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {reporteLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                        {reporteLoading ? 'Enviando reporte...' : 'Enviar reporte'}
+                      </button>
+                    </div>
                   )}
 
                   {section.id === 'language' && (
