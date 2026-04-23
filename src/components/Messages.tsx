@@ -723,10 +723,16 @@ export function Messages({ initialChatToSelect = null, onInitialChatApplied }: M
                         sideOffset={6}
                         className={`chat-header-options-menu min-w-[15rem] p-1.5 rounded-2xl border shadow-xl flex flex-col gap-0.5 ${
                           isDark
-                            ? 'border-slate-600 bg-slate-800 text-slate-100'
-                            : 'border-slate-200 bg-white text-slate-800 shadow-slate-200/50'
+                            ? 'border-slate-500 text-slate-100'
+                            : 'border-slate-200 text-slate-800 shadow-slate-200/50'
                         }`}
-                        style={{ zIndex: 2147483648 }}
+                        style={{
+                          zIndex: 2147483648,
+                          backgroundColor: isDark ? 'rgb(30 41 59)' : 'rgb(255 255 255)',
+                          boxShadow: isDark
+                            ? '0 18px 40px -10px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(71 85 105 / 0.5)'
+                            : '0 18px 40px -10px rgb(0 0 0 / 0.12), 0 0 0 1px rgb(226 232 240 / 0.9)',
+                        }}
                       >
                         <DropdownMenuItem
                           onClick={handleToggleMute}

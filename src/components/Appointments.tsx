@@ -608,7 +608,26 @@ export function Appointments({
           document.body
         )}
 
-      <AppointmentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AppointmentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCitaCreada={({ fecha }) => {
+          const api = calendarRef.current?.getApi();
+          if (api) {
+            // Lleva el calendario a la fecha agendada si no está visible.
+            try {
+              api.gotoDate(fecha);
+            } catch {
+              /* ignorar */
+            }
+            const view = api.view;
+            fetchCitas(view.activeStart, view.activeEnd);
+          }
+          getSolicitudesPendientes()
+            .then((l) => setPendientesCount(l.length))
+            .catch(() => setPendientesCount(0));
+        }}
+      />
 
       {error && (
         <div className={`rounded-xl p-4 flex items-center justify-between ${

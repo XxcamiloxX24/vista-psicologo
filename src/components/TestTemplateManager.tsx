@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Pencil, Trash2, Loader2, X, ChevronDown, ChevronUp, Eye, ClipboardList } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import {
   getMisPlantillas,
   crearPlantilla,
   editarPlantilla,
@@ -161,6 +168,30 @@ export function TestTemplateManager() {
   const card = `rounded-xl border p-4 ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-slate-200'}`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm ${isDark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-500' : 'bg-white border-slate-300 text-slate-800 placeholder:text-slate-400'}`;
 
+  const selectContentClass = `!z-[100] !w-[var(--radix-select-trigger-width)] !min-w-[var(--radix-select-trigger-width)] rounded-xl ${
+    isDark
+      ? '!bg-slate-700 border-slate-500 text-white settings-select-dark'
+      : '!bg-white border-slate-200 text-slate-900 select-light-dropdown'
+  }`;
+
+  const selectContentStyle = isDark
+    ? {
+        backgroundColor: '#334155',
+        width: 'var(--radix-select-trigger-width)',
+        minWidth: 'var(--radix-select-trigger-width)',
+        zIndex: 100,
+      }
+    : {
+        backgroundColor: '#ffffff',
+        width: 'var(--radix-select-trigger-width)',
+        minWidth: 'var(--radix-select-trigger-width)',
+        zIndex: 100,
+      };
+
+  const selectItemClass = isDark
+    ? 'px-4 py-2 text-white focus:bg-slate-500 data-[highlighted]:bg-slate-500'
+    : 'px-4 py-2 text-slate-900 focus:bg-slate-100 data-[highlighted]:bg-slate-100';
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -214,9 +245,22 @@ export function TestTemplateManager() {
                       <span className={`mt-2 text-xs font-bold shrink-0 w-6 h-6 flex items-center justify-center rounded-full ${isDark ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>{pIdx + 1}</span>
                       <div className="flex-1 space-y-2">
                         <input type="text" value={preg.texto} onChange={(e) => updatePregunta(pIdx, { texto: e.target.value })} placeholder="Escribe la pregunta..." className={inputCls} />
-                        <select value={preg.tipo} onChange={(e) => cambiarTipoPregunta(pIdx, e.target.value)} className={`${inputCls} cursor-pointer`}>
-                          {TIPOS_PREGUNTA.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
-                        </select>
+                        <Select value={preg.tipo} onValueChange={(v) => cambiarTipoPregunta(pIdx, v)}>
+                          <SelectTrigger
+                            id={`pregunta-tipo-${pIdx}`}
+                            aria-label="Tipo de pregunta"
+                            className={`${inputCls} !h-auto min-h-[2.5rem] cursor-pointer shadow-none`}
+                          >
+                            <SelectValue placeholder="Tipo de pregunta" />
+                          </SelectTrigger>
+                          <SelectContent className={selectContentClass} style={selectContentStyle}>
+                            {TIPOS_PREGUNTA.map((t) => (
+                              <SelectItem key={t.value} value={t.value} hideIndicator className={selectItemClass}>
+                                {t.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="flex flex-col gap-1 shrink-0">
                         <button type="button" onClick={() => moverPregunta(pIdx, -1)} disabled={pIdx === 0} className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>

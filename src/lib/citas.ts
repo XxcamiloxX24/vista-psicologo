@@ -359,6 +359,151 @@ export async function buscarCitasPorPsicologo(psicologoDocumento: string): Promi
   return Array.isArray(data) ? data : [];
 }
 
+/* ============================================================
+ * Crear cita (agenda directa desde psicólogo)
+ * ============================================================ */
+
+export interface CrearCitaDTO {
+  citTipoCita: 'presencial' | 'videollamada' | 'chat';
+  /** yyyy-MM-dd */
+  citFechaProgramada: string;
+  /** HH:mm o HH:mm:ss */
+  citHoraInicio: string;
+  /** HH:mm o HH:mm:ss */
+  citHoraFin: string;
+  /** Estado inicial: 'programada' por defecto al agendar directamente */
+  citEstadoCita: 'programada' | 'reprogramada' | 'pendiente';
+  citMotivo?: string;
+  citAnotaciones?: string;
+  /** FK AprFicCodigo (no es FicCodigo de la ficha académica) */
+  citAprCodFk: number;
+  /** FK psicólogo (PsiCodigo) */
+  citPsiCodFk: number;
+}
+
+export interface CitaCreadaResponse {
+  mensaje?: string;
+  resultado?: CitaApi;
+}
+
+/**
+ * Crea una cita directamente (el psicólogo agenda para un aprendiz).
+ * POST /api/Citas
+ */
+export async function crearCita(dto: CrearCitaDTO): Promise<CitaCreadaResponse> {
+  const body = {
+    citTipoCita: dto.citTipoCita,
+    citFechaProgramada: dto.citFechaProgramada,
+    citHoraInicio: toTimeOnlyStr(dto.citHoraInicio),
+    citHoraFin: toTimeOnlyStr(dto.citHoraFin),
+    citEstadoCita: dto.citEstadoCita,
+    citMotivo: dto.citMotivo ?? '',
+    citAnotaciones: dto.citAnotaciones ?? '',
+    citAprCodFk: dto.citAprCodFk,
+    citPsiCodFk: dto.citPsiCodFk,
+  };
+  const response = await authFetch(`${API_BASE_URL}/api/Citas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    let msg = 'Error al agendar la cita';
+    try {
+      const err = JSON.parse(text) as { message?: string; detail?: string };
+      msg = err.message ?? err.detail ?? (text || msg);
+    } catch {
+      if (text) msg = text;
+    }
+    throw new Error(msg);
+  }
+  try {
+    return (await response.json()) as CitaCreadaResponse;
+  } catch {
+    return {};
+  }
+}
+
+/* ============================================================
+ * Búsqueda de Aprendiz-Ficha (para resolver citAprCodFk)
+ * ============================================================ */
+
+export interface AprendizFichaResumen {
+  /** AprFicCodigo — es el valor que usa citAprCodFk en la API de citas */
+  codigo: number;
+  aprendiz: {
+    codigo?: number;
+    nroDocumento?: string;
+    nombres?: { primerNombre?: string; segundoNombre?: string };
+    apellidos?: { primerApellido?: string; segundoApellido?: string };
+    contacto?: {
+      correoInstitucional?: string;
+      correoPersonal?: string;
+      telefono?: string;
+    };
+  };
+  ficha: {
+    ficCodigo?: number;
+    ficJornada?: string;
+    programaFormacion?: {
+      progNombre?: string;
+      area?: {
+        areaNombre?: string;
+        areaPsicologo?: { psiCodigo?: number; psiNombre?: string; psiApellido?: string };
+      };
+      centro?: { cenNombre?: string };
+    };
+  };
+}
+
+/** Nombre completo legible a partir del resumen de aprendiz-ficha */
+export function nombreCompletoAprendizFicha(a: AprendizFichaResumen): string {
+  const n = a.aprendiz?.nombres ?? {};
+  const ap = a.aprendiz?.apellidos ?? {};
+  return [n.primerNombre, n.segundoNombre, ap.primerApellido, ap.segundoApellido]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+async function buscarAprendizFicha(
+  params: { fichaCodigo?: number; aprendizDocumento?: string },
+): Promise<AprendizFichaResumen[]> {
+  const url = new URL(`${API_BASE_URL}/api/AprendizFicha/buscar`);
+  if (params.fichaCodigo != null) {
+    url.searchParams.set('FichaCodigo', String(params.fichaCodigo));
+  }
+  if (params.aprendizDocumento) {
+    url.searchParams.set('AprendizDocumento', params.aprendizDocumento.trim());
+  }
+  const response = await authFetch(url.toString());
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    const text = await response.text();
+    let msg = 'Error al buscar aprendiz';
+    try {
+      const err = JSON.parse(text) as { message?: string; detail?: string };
+      msg = err.message ?? err.detail ?? (text || msg);
+    } catch {
+      if (text) msg = text;
+    }
+    throw new Error(msg);
+  }
+  const data = await response.json();
+  return Array.isArray(data) ? (data as AprendizFichaResumen[]) : [];
+}
+
+/** Busca aprendices por número de ficha académica. */
+export function buscarAprendizFichaPorFicha(fichaCodigo: number): Promise<AprendizFichaResumen[]> {
+  return buscarAprendizFicha({ fichaCodigo });
+}
+
+/** Busca un aprendiz por su número de documento. */
+export function buscarAprendizFichaPorDocumento(documento: string): Promise<AprendizFichaResumen[]> {
+  return buscarAprendizFicha({ aprendizDocumento: documento });
+}
+
 export async function getComparacionSemanal(
   psicologoId: number,
   opts?: { estadoCita?: string; fechaReferencia?: string }
